@@ -1,252 +1,49 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Pikachu — Forest Dream</title>
-<style>
-:root{color-scheme:dark}
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08150f;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
-body{display:grid;place-items:center}
-canvas{width:100vw;height:100vh;display:block;image-rendering:auto}
-.ui{position:fixed;inset:0;pointer-events:none}
-.card{position:absolute;left:18px;top:18px;padding:12px 15px;border:1px solid #ffffff20;border-radius:16px;background:#06130ed9;backdrop-filter:blur(10px);box-shadow:0 12px 40px #0006}
-.title{font-size:18px;font-weight:800;letter-spacing:.2px}.sub{font-size:12px;color:#c9e8c9;margin-top:3px}
-.hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:9px 14px;border-radius:999px;background:#06130ec7;border:1px solid #ffffff18;color:#e8f7e7;font-size:12px;backdrop-filter:blur(8px)}
-.badge{position:absolute;right:18px;top:18px;padding:8px 11px;border-radius:999px;background:#06130ebd;border:1px solid #ffffff18;color:#d9f4d5;font-size:11px}
-#touch{display:none;position:fixed;inset:auto 18px 18px auto;pointer-events:auto}
-@media(max-width:700px){.hint{font-size:11px}.card{left:10px;top:10px}.badge{right:10px;top:10px}}
-</style>
-</head>
-<body>
-<canvas id="game"></canvas>
-<div class="ui">
-  <div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div>
-  <div class="badge" id="weather">Morning · Clear</div>
-  <div class="hint">WASD / Arrow Keys to wander · Shift to trot · E to rest</div>
-</div>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pikachu Forest Dream</title><style>
+html,body{margin:0;height:100%;overflow:hidden;background:#07150e;font-family:system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh;image-rendering:auto}.ui{position:fixed;inset:0;pointer-events:none}.card,.badge,.hint{position:absolute;background:#06130dcc;border:1px solid #ffffff20;backdrop-filter:blur(8px);color:#fff}.card{left:16px;top:16px;padding:11px 14px;border-radius:15px}.title{font-weight:800}.sub{font-size:12px;color:#cfe8ca;margin-top:3px}.badge{right:16px;top:16px;padding:8px 11px;border-radius:999px;font-size:11px}.hint{left:50%;bottom:15px;transform:translateX(-50%);padding:8px 13px;border-radius:999px;font-size:12px;color:#e5f5e1}
+</style></head><body><canvas id="game"></canvas><div class="ui"><div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div><div class="badge" id="weather">Morning · Clear</div><div class="hint">WASD / arrows · Shift to trot · E to rest</div></div>
 <script>
-const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
-const DPR=Math.min(2,devicePixelRatio||1);
-function resize(){canvas.width=innerWidth*DPR;canvas.height=innerHeight*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
-addEventListener('resize',resize);resize();
-
-const TILE=56, WORLD_W=116, WORLD_H=78, WW=WORLD_W*TILE, WH=WORLD_H*TILE;
-const atlas={
-  grass:'#79ad61', grass2:'#6ea158', path:'#c4a86c', water:'#3e94c2',
-  deep:'#2d78aa', flower:'#f6b5c9', leaf:'#9fc56e', trunk:'#70462d',
-  rock:'#73837b', stone:'#a8b0a4', cliff:'#6a7d54'
-};
-const keys=new Set();
-addEventListener('keydown',e=>{keys.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();if(e.key.toLowerCase()==='e')restPulse=1});
-addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
-
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const lerp=(a,b,t)=>a+(b-a)*t;
-function hash(x,y){let n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n)}
-function noise(x,y){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi;const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);const u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return lerp(lerp(a,b,u),lerp(c,d,u),v)}
-
-const player={x:14*TILE,y:58*TILE,face:'down',walk:0,rest:0};
-const camera={x:0,y:0};
-let time=0,restPulse=0,weatherT=0;
-const effects=[];
-const spots=[
- {x:17,y:54,name:'Sunny Trail'},{x:34,y:58,name:'Flower Field'},{x:52,y:44,name:'Mossy Creek'},
- {x:69,y:31,name:'Waterfall View'},{x:89,y:19,name:'Old Forest'},{x:99,y:53,name:'Hidden Meadow'},
- {x:77,y:63,name:'Ruins Clearing'}
-];
-
-function regionAt(px,py){
- const gx=px/TILE,gy=py/TILE;
- if(gx>63&&gx<78&&gy>25&&gy<40)return 'Waterfall View';
- if(gx>43&&gx<62&&gy>37&&gy<57)return 'Mossy Creek';
- if(gx>86&&gx<110&&gy>45&&gy<67)return 'Hidden Meadow';
- if(gx>72&&gx<91&&gy>55&&gy<72)return 'Ruins Clearing';
- if(gx>25&&gx<43&&gy>48&&gy<66)return 'Flower Field';
- if(gx>78&&gy<42)return 'Old Forest';
- return 'Sunny Trail';
+const c=document.getElementById('game'),g=c.getContext('2d'),img=new Image();img.src='assets/pokemon-forest-sprites.webp';
+let dpr=Math.min(2,devicePixelRatio||1),t=0;function size(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;g.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',size);size();
+const K=new Set;addEventListener('keydown',e=>{K.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault()});addEventListener('keyup',e=>K.delete(e.key.toLowerCase()));
+const S=56,W=116,H=78,WW=W*S,WH=H*S,P={x:15*S,y:57*S,face:2,walk:0},C={x:0,y:0};const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const n=(x,y)=>{let v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)};
+/* The supplied 1536x1024 sheet was reduced to 384x256 for the web build. All environment and Pikachu art below is sampled from that sheet. */
+const A={grass:[2,7,18,19],sand:[43,7,18,19],stone:[61,7,18,19],wood:[80,7,18,19],water:[103,7,18,19],stream:[147,7,18,19],tall:[2,33,18,19],flowers:[43,33,18,19],leaves:[61,33,18,19],moss:[80,33,18,19],rock:[207,94,18,18],bush:[103,94,18,19],plant:[123,94,18,19],fern:[145,94,18,19],tree:[3,94,18,19],pine:[42,94,18,19],fallen:[61,94,18,19],bridge:[289,7,18,19],waterfall:[145,33,18,19],cave:[287,94,18,19],flowerField:[175,206,18,19]};
+function atlas(name,x,y,w=S,h=S){let a=A[name];if(!a)return;g.drawImage(img,a[0],a[1],a[2],a[3],x,y,w,h)}
+function tile(x,y,name){atlas(name,x*S,y*S,S+1,S+1)}
+function region(){let x=P.x/S,y=P.y/S;if(x>62&&x<79&&y>22&&y<41)return'Waterfall View';if(x>42&&x<61&&y>35&&y<57)return'Mossy Creek';if(x>84&&y>45)return'Hidden Meadow';if(x>72&&x<91&&y>55)return'Forest Ruins';if(x>25&&x<44&&y>48)return'Flower Field';if(x>77&&y<42)return'Old Forest';return'Sunny Trail'}
+function world(){
+ g.save();g.translate(-C.x,-C.y);let sx=Math.floor(C.x/S)-1,ex=Math.ceil((C.x+innerWidth)/S)+1,sy=Math.floor(C.y/S)-1,ey=Math.ceil((C.y+innerHeight)/S)+1;
+ for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){let z='grass';if(y>=55&&y<=60)z=(n(x,y)>.65?'sand':'grass');if(x>=49&&x<=52&&y>=23&&y<=55)z='water';if(x>=65&&x<=76&&y>=27&&y<=37)z='water';tile(x,y,z)}
+ // asset-based paths
+ for(let x=-2;x<W;x+=1){tile(x,56,'sand');tile(x,57,'sand');tile(x,58,'sand')}
+ for(let y=28;y<56;y++)tile(51,y,y%3?'water':'stream');
+ // bridges from the supplied sheet
+ for(let x=47;x<55;x++)tile(x,38,'bridge');for(let x=68;x<76;x++)tile(x,33,'bridge');
+ // dense asset vegetation
+ for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){let q=n(x,y);if(q>.63){let type=q>.9?'pine':q>.82?'bush':q>.74?'fern':'tree';if((x>45&&x<58&&y>34&&y<58)||(x>63&&x<79&&y>20&&y<41))continue;atlas(type,x*S-9,y*S-12,72,76)}}
+ // flowers / tall grass / rocks
+ for(let i=0;i<180;i++){let x=(i*37%113),y=(i*61%74);if(n(i,9)>.56)atlas(n(i,9)>.78?'flowers':'tall',x*S,y*S,44,46)}
+ for(let i=0;i<65;i++){let x=(i*71%112),y=(i*43%74);if(n(i,2)>.45)atlas('rock',x*S,y*S+10,40,40)}
+ // scenic waterfall and cave
+ for(let y=20;y<28;y++)atlas('waterfall',69*S,y*S,54,58);
+ atlas('cave',91*S,18*S,70,70);atlas('flowerField',31*S,50*S,75,75);
+ g.restore()
 }
-
-function drawTileTexture(px,py,kind){
- const n=noise(px*.11,py*.13);
- ctx.fillStyle=kind==='path'?atlas.path:(kind==='water'?atlas.water:(n>.72?atlas.grass2:atlas.grass));
- ctx.fillRect(px*TILE,py*TILE,TILE+1,TILE+1);
- if(kind==='water'){
-   ctx.strokeStyle='#8dd5eb55';ctx.lineWidth=2;
-   const s=(time*.03+px*3+py*7)%TILE;
-   ctx.beginPath();ctx.moveTo(px*TILE+8+s,py*TILE+18);ctx.lineTo(px*TILE+30+s,py*TILE+14);ctx.stroke();
-   ctx.beginPath();ctx.moveTo(px*TILE+20-s,py*TILE+40);ctx.lineTo(px*TILE+47-s,py*TILE+36);ctx.stroke();
- } else {
-   const r=noise(px*.8,py*.8);
-   if(kind!=='path'&&r>.68){
-     ctx.strokeStyle='#477d3d66';ctx.lineWidth=1.5;
-     for(let k=0;k<2;k++){let xx=px*TILE+10+k*21+(n*7), yy=py*TILE+38;ctx.beginPath();ctx.moveTo(xx,yy+8);ctx.lineTo(xx-2,yy);ctx.lineTo(xx+2,yy+4);ctx.stroke()}
-   }
- }
+function pika(){
+ g.save();g.translate(P.x-C.x,P.y-C.y);let bob=P.walk?Math.sin(P.walk*12)*2:Math.sin(t*2)*1.2;g.translate(0,bob);
+ // Pikachu idle frames are the bottom-left Pikachu frames on the supplied sheet.
+ // Source frame strip is around x=4..58, y=224..245 in the reduced atlas.
+ let frame=P.walk?Math.floor(P.walk*1.8)%4:Math.floor(t*1.5)%4, sx=4+frame*14, sy=225;
+ g.imageSmoothingEnabled=false;g.drawImage(img,sx,sy,13,19,-27,-38,54,78);g.restore()
 }
-
-function worldBase(){
- ctx.save();ctx.translate(-camera.x,-camera.y);
- const sx=Math.floor(camera.x/TILE)-1, ex=Math.ceil((camera.x+innerWidth)/TILE)+1;
- const sy=Math.floor(camera.y/TILE)-1, ey=Math.ceil((camera.y+innerHeight)/TILE)+1;
- for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){
-   let kind='grass';
-   if(y>=55&&y<=60)kind='path';
-   if(x>=49&&x<=52&&y>=24&&y<=55)kind='water';
-   if(x>=50&&x<=56&&y>=50&&y<=53)kind='water';
-   if(x>=65&&x<=76&&y>=27&&y<=37)kind='water';
-   if(x>=67&&x<=72&&y>=20&&y<=27)kind='water';
-   drawTileTexture(x,y,kind);
- }
- // main trail forks
- ctx.strokeStyle='#cbb17a';ctx.lineWidth=36;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-100,58*TILE);ctx.bezierCurveTo(22*TILE,55*TILE,34*TILE,59*TILE,55*TILE,57*TILE);ctx.bezierCurveTo(72*TILE,55*TILE,92*TILE,60*TILE,118*TILE,54*TILE);ctx.stroke();
- ctx.lineWidth=22;ctx.beginPath();ctx.moveTo(36*TILE,58*TILE);ctx.bezierCurveTo(45*TILE,48*TILE,52*TILE,43*TILE,51*TILE,29*TILE);ctx.stroke();
- // stream banks
- ctx.strokeStyle='#d8e7bd';ctx.lineWidth=6;ctx.globalAlpha=.75;
- ctx.beginPath();ctx.moveTo(49*TILE,22*TILE);ctx.bezierCurveTo(54*TILE,31*TILE,48*TILE,41*TILE,52*TILE,55*TILE);ctx.stroke();
- ctx.globalAlpha=1;
- drawBridge(51*TILE,38*TILE,0);
- drawBridge(69*TILE,33*TILE,1);
- drawCliffs();
- drawTrees();
- drawPlants();
- drawLandmarks();
- ctx.restore();
+function atmosphere(){
+ let phase=(t/50)%1,mode=phase<.22?'Morning':phase<.48?'Afternoon':phase<.64?'Sunset':phase<.82?'Night':'Dawn';let rain=Math.floor(t/40)%4===3;
+ if(mode==='Night'){g.fillStyle='#0b194f66';g.fillRect(0,0,innerWidth,innerHeight);for(let i=0;i<35;i++){g.fillStyle='#fff8';g.fillRect((i*97+t*3)%innerWidth,(i*53)%innerHeight,2,2)}}else if(mode==='Sunset'){g.fillStyle='#d87b3b22';g.fillRect(0,0,innerWidth,innerHeight)}
+ for(let i=0;i<18;i++){let x=(i*139+t*20)%innerWidth,y=(i*71+Math.sin(t+i)*12)%innerHeight;g.strokeStyle='#e8f8df44';g.beginPath();g.moveTo(x,y);g.lineTo(x+12,y-3);g.stroke()}
+ if(rain){g.strokeStyle='#a7d8ef55';for(let i=0;i<110;i++){let x=(i*83+t*180)%innerWidth,y=(i*47+t*280)%innerHeight;g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+13);g.stroke()}}
+ document.getElementById('weather').textContent=mode+' · '+(rain?'Rain':'Clear');document.getElementById('place').textContent=region()
 }
-
-function drawBridge(cx,cy,vertical){
- ctx.save();ctx.translate(cx,cy);ctx.rotate(vertical?Math.PI/2:0);
- ctx.fillStyle='#6f472c';ctx.fillRect(-52,-17,104,34);
- for(let i=-42;i<=42;i+=14){ctx.fillStyle=i%28?'#a87343':'#c28b53';ctx.fillRect(i,-14,10,28)}
- ctx.strokeStyle='#4a2d1e';ctx.lineWidth=4;ctx.strokeRect(-52,-17,104,34);
- ctx.restore();
-}
-
-function drawCliffs(){
- const places=[{x:62,y:23,w:11,h:2},{x:84,y:41,w:14,h:2},{x:75,y:69,w:8,h:2}];
- for(const q of places){
-   ctx.fillStyle='#556b47';ctx.fillRect(q.x*TILE,q.y*TILE,q.w*TILE,q.h*TILE);
-   for(let i=0;i<q.w;i++){ctx.fillStyle=i%2?'#7a5439':'#8c6041';ctx.beginPath();ctx.moveTo((q.x+i)*TILE,q.y*TILE+q.h*TILE);ctx.lineTo((q.x+i+.5)*TILE,q.y*TILE+14);ctx.lineTo((q.x+i+1)*TILE,q.y*TILE+q.h*TILE);ctx.fill()}
-   ctx.fillStyle='#86ad64';ctx.fillRect(q.x*TILE,q.y*TILE,q.w*TILE,10);
- }
-}
-
-function tree(px,py,type=0,scale=1){
- const x=px*TILE,y=py*TILE;
- if(x<camera.x-100||x>camera.x+innerWidth+100||y<camera.y-100||y>camera.y+innerHeight+100)return;
- ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
- ctx.fillStyle='#4d3325';ctx.fillRect(-8,4,16,43);ctx.fillStyle='#6b472f';ctx.fillRect(-3,7,5,40);
- const greens=type?['#2e6840','#3d7b46','#5b9652']:['#356f3d','#47864b','#69a65c'];
- for(let i=0;i<4;i++){ctx.fillStyle=greens[i%3];ctx.beginPath();ctx.arc((i%2?13:-12)+(i-1)*2,-9-i*8,25-i*2,0,Math.PI*2);ctx.fill()}
- ctx.fillStyle='#8bb86b55';ctx.beginPath();ctx.arc(-12,-20,12,0,7);ctx.fill();
- ctx.restore();
-}
-
-function drawTrees(){
- const baseSeed=Math.floor(camera.x/100);
- for(let y=-2;y<WORLD_H+2;y+=3)for(let x=-2;x<WORLD_W+2;x+=3){
-   const n=hash(x+baseSeed,y);
-   if(n>.64){
-     const px=x+(n-.5)*1.8,py=y+(hash(y,x)-.5)*1.8;
-     if(px>43&&px<58&&py>35&&py<57)continue;
-     if(px>64&&px<78&&py>20&&py<40)continue;
-     tree(px,py,n>.84?1:0,.78+n*.32);
-   }
- }
- // intentional scenic groves
- [[16,48],[19,51],[30,44],[38,46],[83,16],[88,22],[93,18],[104,50],[108,57],[78,65]].forEach((p,i)=>tree(p[0],p[1],i%2,.95));
-}
-
-function drawPlants(){
- for(let i=0;i<190;i++){
-   const px=(i*37%113)+.3,py=(i*61%75)+.4;
-   if(px<camera.x/TILE-2||px>camera.x/TILE+innerWidth/TILE+2||py<camera.y/TILE-2||py>camera.y/TILE+innerHeight/TILE+2)continue;
-   const n=hash(i,9);
-   if(n>.58){
-     const x=px*TILE,y=py*TILE;ctx.strokeStyle='#427e43';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y+8);ctx.lineTo(x-3,y-4);ctx.moveTo(x,y+8);ctx.lineTo(x+4,y-2);ctx.stroke();
-     if(n>.82){ctx.fillStyle=n>.91?'#f7c6d9':'#f6e59a';for(let a=0;a<4;a++){ctx.beginPath();ctx.arc(x+Math.cos(a*1.57)*5,y-5+Math.sin(a*1.57)*4,3,0,7);ctx.fill()}}
-   }
- }
- // tall grass patches
- [[8,57,5,2],[27,62,6,3],[88,57,7,3],[99,61,4,2],[58,52,4,2]].forEach(p=>{
-   for(let yy=0;yy<p[3];yy++)for(let xx=0;xx<p[2];xx++){let x=(p[0]+xx)*TILE+10,y=(p[1]+yy)*TILE+45;ctx.strokeStyle='#3f7f3d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y+9);ctx.lineTo(x-4,y-7);ctx.moveTo(x,y+9);ctx.lineTo(x+5,y-5);ctx.stroke()}
- });
-}
-
-function drawLandmarks(){
- // waterfall
- const wx=70*TILE,wy=20*TILE;
- ctx.fillStyle='#c7e8d6';ctx.fillRect(wx-10,wy,10,7*TILE);
- ctx.fillStyle='#64b9ddaa';ctx.fillRect(wx,wy,44,7*TILE);
- for(let i=0;i<5;i++){ctx.strokeStyle='#dff9ff99';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(wx+6+i*8,wy+8);ctx.lineTo(wx+8+i*8,wy+7*TILE-12);ctx.stroke()}
- ctx.fillStyle='#2e80a7';ctx.beginPath();ctx.ellipse(wx+22,wy+7*TILE,58,20,0,0,7);ctx.fill();
- // ancient tree
- const ax=82*TILE,ay=62*TILE;ctx.fillStyle='#513625';ctx.fillRect(ax-18,ay-50,36,70);ctx.fillStyle='#315f3b';ctx.beginPath();ctx.arc(ax,ay-65,46,0,7);ctx.arc(ax-35,ay-48,31,0,7);ctx.arc(ax+34,ay-45,32,0,7);ctx.fill();ctx.strokeStyle='#9a7045';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(ax,ay+18);ctx.lineTo(ax-5,ay-35);ctx.moveTo(ax,ay-3);ctx.lineTo(ax-26,ay-25);ctx.stroke();
- // ruins ring
- const rx=78*TILE,ry=65*TILE;ctx.strokeStyle='#9ca891';ctx.lineWidth=10;ctx.beginPath();ctx.arc(rx,ry,52,0,7);ctx.stroke();for(let i=0;i<7;i++){const a=i*Math.PI*2/7;ctx.fillStyle='#747d6e';ctx.fillRect(rx+Math.cos(a)*52-7,ry+Math.sin(a)*52-15,14,30)}
-}
-
-function drawPikachu(){
- ctx.save();ctx.translate(player.x-camera.x,player.y-camera.y);
- const moving=player.walk>0, bob=moving?Math.sin(player.walk*15)*2:Math.sin(time*2.2)*1.3;
- ctx.translate(0,bob);
- // shadow
- ctx.fillStyle='#18321c55';ctx.beginPath();ctx.ellipse(0,26,24,8,0,0,7);ctx.fill();
- const flip=player.face==='left'?-1:1;ctx.scale(flip,1);
- // tail with animated sway
- ctx.save();ctx.rotate(Math.sin(time*3)*.04);ctx.fillStyle='#f1c32c';ctx.beginPath();ctx.moveTo(-17,-2);ctx.lineTo(-38,-17);ctx.lineTo(-29,-31);ctx.lineTo(-11,-18);ctx.closePath();ctx.fill();ctx.strokeStyle='#8d681d';ctx.stroke();ctx.restore();
- // body
- ctx.fillStyle='#f3c62d';ctx.beginPath();ctx.ellipse(0,7,20,25,0,0,7);ctx.fill();ctx.strokeStyle='#8d681d';ctx.stroke();
- // arms
- ctx.fillStyle='#eab72a';ctx.beginPath();ctx.ellipse(-19,7,6,13,-.4,0,7);ctx.ellipse(19,7,6,13,.4,0,7);ctx.fill();
- // ears
- ctx.fillStyle='#f3c62d';ctx.beginPath();ctx.moveTo(-14,-17);ctx.lineTo(-24,-51);ctx.lineTo(-5,-41);ctx.closePath();ctx.moveTo(14,-17);ctx.lineTo(24,-51);ctx.lineTo(5,-41);ctx.closePath();ctx.fill();
- ctx.fillStyle='#29231d';ctx.beginPath();ctx.moveTo(-22,-49);ctx.lineTo(-24,-41);ctx.lineTo(-14,-45);ctx.closePath();ctx.moveTo(22,-49);ctx.lineTo(24,-41);ctx.lineTo(14,-45);ctx.closePath();ctx.fill();
- // head
- ctx.fillStyle='#f7cd35';ctx.beginPath();ctx.ellipse(0,-18,24,23,0,0,7);ctx.fill();ctx.stroke();
- // eyes + cheeks
- ctx.fillStyle='#171717';ctx.beginPath();ctx.arc(-9,-20,3.5,0,7);ctx.arc(9,-20,3.5,0,7);ctx.fill();
- ctx.fillStyle='#e84b43';ctx.beginPath();ctx.arc(-17,-11,4.6,0,7);ctx.arc(17,-11,4.6,0,7);ctx.fill();
- ctx.fillStyle='#2f1e18';ctx.beginPath();ctx.arc(0,-12,1.8,0,7);ctx.fill();
- // feet
- ctx.fillStyle='#d6a71f';ctx.beginPath();ctx.ellipse(-10,28,8,4,0,0,7);ctx.ellipse(10,28,8,4,0,0,7);ctx.fill();
- // idle ear twitch
- if(!moving){ctx.strokeStyle='#f9df68';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,-43);ctx.lineTo(-18,-48);ctx.moveTo(14,-43);ctx.lineTo(18,-48);ctx.stroke()}
- ctx.restore();
-}
-
-function drawAtmosphere(){
- const cycle=(time/50)%1;
- let mode=cycle<.22?'Morning':cycle<.48?'Afternoon':cycle<.64?'Sunset':cycle<.82?'Night':'Dawn';
- let alpha=mode==='Night'?.42:mode==='Sunset'?.16:0;
- if(alpha){ctx.fillStyle=mode==='Night'?'#10285a':'#d8894a';ctx.fillRect(0,0,innerWidth,innerHeight);ctx.fillStyle='#fff';for(let i=0;i<35;i++){let sx=(i*97+time*3)%innerWidth,sy=(i*53)%innerHeight;ctx.globalAlpha=.5;ctx.fillRect(sx,sy,2,2)}ctx.globalAlpha=1}
- // wind particles
- for(let i=0;i<16;i++){let px=(i*139+time*20)%innerWidth,py=(i*71+Math.sin(time+i)*12)%innerHeight;ctx.strokeStyle='#e6f6d055';ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+12,py-3);ctx.stroke()}
- // rain every 4 cycles
- if(Math.floor(time/40)%4===3){ctx.strokeStyle='#9ed1e455';ctx.lineWidth=1;for(let i=0;i<100;i++){let rx=(i*83+time*180)%innerWidth,ry=(i*47+time*280)%innerHeight;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-5,ry+13);ctx.stroke()}}
- document.getElementById('weather').textContent=mode+' · '+(Math.floor(time/40)%4===3?'Rain':'Clear');
-}
-
-function loop(ms){
- const dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;time+=dt;
- let dx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0);
- let dy=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
- const len=Math.hypot(dx,dy)||1, speed=keys.has('shift')?205:145;
- if(dx||dy){dx/=len;dy/=len;player.walk+=dt*speed/22;if(Math.abs(dx)>Math.abs(dy))player.face=dx>0?'right':'left';else player.face=dy>0?'down':'up'}
- else player.walk=0;
- const nx=clamp(player.x+dx*speed*dt,26,WW-26),ny=clamp(player.y+dy*speed*dt,26,WH-26);
- // water is traversable slowly, cliffs and landmark cores gently constrain movement
- const water=(nx/TILE>48&&nx/TILE<58&&ny/TILE>23&&ny/TILE<56)||(nx/TILE>64&&nx/TILE<78&&ny/TILE>26&&ny/TILE<39);
- if(!water){player.x=nx;player.y=ny}else{player.x=lerp(player.x,nx,.35);player.y=lerp(player.y,ny,.35)}
- if(restPulse>0){player.rest+=dt*4;restPulse-=dt;if(restPulse<0)restPulse=0}
- camera.x=lerp(camera.x,clamp(player.x-innerWidth/2,0,WW-innerWidth),.12);
- camera.y=lerp(camera.y,clamp(player.y-innerHeight/2,0,WH-innerHeight),.12);
- ctx.clearRect(0,0,innerWidth,innerHeight);worldBase();drawPikachu();drawAtmosphere();
- document.getElementById('place').textContent=regionAt(player.x,player.y);
- requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-</script>
-</body>
-</html>
+function loop(ms){let dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;t+=dt;let dx=(K.has('d')||K.has('arrowright')?1:0)-(K.has('a')||K.has('arrowleft')?1:0),dy=(K.has('s')||K.has('arrowdown')?1:0)-(K.has('w')||K.has('arrowup')?1:0),l=Math.hypot(dx,dy)||1,sp=K.has('shift')?210:150;if(dx||dy){dx/=l;dy/=l;P.walk+=dt*sp/22;if(Math.abs(dx)>Math.abs(dy))P.face=dx>0?3:1;else P.face=dy>0?2:0}else P.walk=0;
+ P.x=clamp(P.x+dx*sp*dt,30,WW-30);P.y=clamp(P.y+dy*sp*dt,30,WH-30);C.x+=(clamp(P.x-innerWidth/2,0,WW-innerWidth)-C.x)*.12;C.y+=(clamp(P.y-innerHeight/2,0,WH-innerHeight)-C.y)*.12;
+ g.clearRect(0,0,innerWidth,innerHeight);world();pika();atmosphere();requestAnimationFrame(loop)}img.onload=()=>requestAnimationFrame(loop);
+</script></body></html>
