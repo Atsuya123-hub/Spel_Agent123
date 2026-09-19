@@ -1,75 +1,252 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pikachu's Forest Adventure</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pikachu — Forest Dream</title>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#10251a;font-family:system-ui,sans-serif}
-body{display:grid;place-items:center} canvas{width:min(100vw,177.78vh);height:min(56.25vw,100vh);image-rendering:auto;box-shadow:0 0 40px #000}
-#help{position:fixed;left:16px;bottom:12px;color:#fff8;background:#07150dcc;padding:8px 12px;border-radius:10px;font-size:14px;backdrop-filter:blur(5px)}
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08150f;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+body{display:grid;place-items:center}
+canvas{width:100vw;height:100vh;display:block;image-rendering:auto}
+.ui{position:fixed;inset:0;pointer-events:none}
+.card{position:absolute;left:18px;top:18px;padding:12px 15px;border:1px solid #ffffff20;border-radius:16px;background:#06130ed9;backdrop-filter:blur(10px);box-shadow:0 12px 40px #0006}
+.title{font-size:18px;font-weight:800;letter-spacing:.2px}.sub{font-size:12px;color:#c9e8c9;margin-top:3px}
+.hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:9px 14px;border-radius:999px;background:#06130ec7;border:1px solid #ffffff18;color:#e8f7e7;font-size:12px;backdrop-filter:blur(8px)}
+.badge{position:absolute;right:18px;top:18px;padding:8px 11px;border-radius:999px;background:#06130ebd;border:1px solid #ffffff18;color:#d9f4d5;font-size:11px}
+#touch{display:none;position:fixed;inset:auto 18px 18px auto;pointer-events:auto}
+@media(max-width:700px){.hint{font-size:11px}.card{left:10px;top:10px}.badge{right:10px;top:10px}}
 </style>
 </head>
 <body>
-<canvas id="game" width="1280" height="720"></canvas>
-<div id="help">WASD / Arrow Keys: move &nbsp; • &nbsp; Shift: run &nbsp; • &nbsp; E: interact</div>
+<canvas id="game"></canvas>
+<div class="ui">
+  <div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div>
+  <div class="badge" id="weather">Morning · Clear</div>
+  <div class="hint">WASD / Arrow Keys to wander · Shift to trot · E to rest</div>
+</div>
 <script>
-const c=document.getElementById('game'),x=c.getContext('2d');
-const W=1280,H=720,T=48,world={w:80*T,h:55*T};
-const keys={}; addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault()});
-addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-const rnd=(a,b)=>Math.random()*(b-a)+a, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const trees=[],flowers=[],rocks=[],pond={x:31*T,y:7*T,w:12*T,h:10*T};
-for(let i=0;i<145;i++){let p={x:rnd(1,79)*T,y:rnd(1,54)*T,r:rnd(22,31)};if(p.x>pond.x-35&&p.x<pond.x+pond.w+35&&p.y>pond.y-35&&p.y<pond.y+pond.h+35){i--;continue}trees.push(p)}
-for(let i=0;i<260;i++) flowers.push({x:rnd(0,world.w),y:rnd(0,world.h),c:Math.random()<.5?'#ffd5e8':'#fff0a5'});
-for(let i=0;i<55;i++)rocks.push({x:rnd(0,world.w),y:rnd(0,world.h),r:rnd(7,15)});
-const pik={x:14*T,y:28*T,vx:0,vy:0,face:1,anim:0};
-const cam={x:0,y:0};
-function blocked(px,py){if(px<18||py<18||px>world.w-18||py>world.h-18)return true;
- if(px>pond.x-22&&px<pond.x+pond.w+22&&py>pond.y-22&&py<pond.y+pond.h+22)return true;
- return trees.some(t=>Math.hypot(px-t.x,py-t.y)<t.r+16)||rocks.some(r=>Math.hypot(px-r.x,py-r.y)<r.r+13)}
-function drawTree(t){x.save();x.translate(t.x,t.y);x.fillStyle='#5a3824';x.fillRect(-7,3,14,35);x.fillStyle='#3b2419';x.fillRect(-3,8,5,30);
- for(let i=0;i<3;i++){x.fillStyle=i?'#2f6b3c':'#3f7d45';x.beginPath();x.arc(rnd(-13,13),rnd(-22,8),rnd(17,25),0,7);x.fill()}
- x.fillStyle='#5b9852';x.beginPath();x.arc(-10,-7,14,0,7);x.arc(11,-5,16,0,7);x.arc(0,-20,17,0,7);x.fill();x.restore()}
-function drawPika(){x.save();x.translate(pik.x,pik.y);let bob=Math.sin(pik.anim*10)*2;x.translate(0,bob);
- // shadow
- x.fillStyle='#18321c66';x.beginPath();x.ellipse(0,24,23,8,0,0,7);x.fill();
- // tail
- x.save();x.scale(pik.face,1);x.fillStyle='#f5c928';x.beginPath();x.moveTo(-18,-4);x.lineTo(-37,-18);x.lineTo(-29,-31);x.lineTo(-14,-18);x.closePath();x.fill();x.strokeStyle='#9c7414';x.lineWidth=2;x.stroke();x.restore();
- // body
- x.fillStyle='#f4c62b';x.beginPath();x.ellipse(0,6,20,25,0,0,7);x.fill();x.strokeStyle='#9c7414';x.stroke();
- // ears
- x.fillStyle='#f4c62b';x.beginPath();x.moveTo(-14,-17);x.lineTo(-24,-51);x.lineTo(-5,-41);x.closePath();x.moveTo(14,-17);x.lineTo(24,-51);x.lineTo(5,-41);x.closePath();x.fill();
- x.fillStyle='#202020';x.beginPath();x.moveTo(-22,-48);x.lineTo(-24,-41);x.lineTo(-14,-45);x.closePath();x.moveTo(22,-48);x.lineTo(24,-41);x.lineTo(14,-45);x.closePath();x.fill();
- // head
- x.fillStyle='#f7cc32';x.beginPath();x.ellipse(0,-18,24,23,0,0,7);x.fill();x.stroke();
- // eyes
- x.fillStyle='#151515';for(const ex of [-9,9]){x.beginPath();x.arc(ex,-20,3.5,0,7);x.fill()}x.fillStyle='#e64b42';for(const ex of [-17,17]){x.beginPath();x.arc(ex,-12,4.5,0,7);x.fill()}
- x.fillStyle='#3d241b';x.beginPath();x.arc(0,-13,1.8,0,7);x.fill();
- // cheeks highlight
- x.fillStyle='#fff2a3';x.globalAlpha=.55;x.beginPath();x.arc(-18,-14,2,0,7);x.arc(18,-14,2,0,7);x.fill();x.globalAlpha=1;
- // feet
- x.fillStyle='#dcae1e';x.beginPath();x.ellipse(-10,28,8,4,0,0,7);x.ellipse(10,28,8,4,0,0,7);x.fill();
- x.restore()}
-function draw(){x.clearRect(0,0,W,H);let grd=x.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#87c8ed');grd.addColorStop(.55,'#b8e3a0');grd.addColorStop(1,'#6eae62');x.fillStyle=grd;x.fillRect(0,0,W,H);
- x.save();x.translate(-cam.x,-cam.y);
- // ground texture
- x.fillStyle='#72ad61';x.fillRect(0,0,world.w,world.h);
- for(let i=0;i<850;i++){let xx=(i*83)%world.w,yy=(i*137)%world.h;x.strokeStyle=i%3?'#5d9954':'#86bd6e';x.lineWidth=2;x.beginPath();x.moveTo(xx,yy);x.lineTo(xx+3,yy-5);x.stroke()}
- // paths
- x.fillStyle='#c6a86c';x.beginPath();x.moveTo(0,34*T);x.bezierCurveTo(18*T,30*T,25*T,37*T,40*T,34*T);x.bezierCurveTo(56*T,30*T,67*T,35*T,80*T,31*T);x.lineTo(80*T,37*T);x.bezierCurveTo(64*T,41*T,52*T,36*T,39*T,40*T);x.bezierCurveTo(25*T,43*T,13*T,36*T,0,40*T);x.fill();
- // pond
- x.fillStyle='#4e9fd0';x.beginPath();x.roundRect(pond.x,pond.y,pond.w,pond.h,55);x.fill();x.strokeStyle='#d4efcf';x.lineWidth=8;x.stroke();
- for(let i=0;i<25;i++){x.fillStyle='#e9d36a';let xx=pond.x+rnd(20,pond.w-20),yy=pond.y+rnd(20,pond.h-20);x.beginPath();x.arc(xx,yy,3,0,7);x.fill()}
- flowers.forEach(f=>{if(f.x>cam.x-30&&f.x<cam.x+W+30&&f.y>cam.y-30&&f.y<cam.y+H+30){x.strokeStyle='#477d3e';x.beginPath();x.moveTo(f.x,f.y+5);x.lineTo(f.x,f.y-2);x.stroke();x.fillStyle=f.c;x.beginPath();x.arc(f.x,f.y-3,3,0,7);x.fill()}});
- rocks.forEach(r=>{x.fillStyle='#718070';x.beginPath();x.ellipse(r.x,r.y,r.r,r.r*.7,-.2,0,7);x.fill();x.fillStyle='#98a897';x.beginPath();x.ellipse(r.x-3,r.y-3,r.r*.45,r.r*.25,-.2,0,7);x.fill()});
- trees.forEach(drawTree);drawPika();x.restore();
- // HUD
- x.fillStyle='#092316dd';x.beginPath();x.roundRect(22,20,260,74,16);x.fill();x.fillStyle='#fff';x.font='700 20px system-ui';x.fillText('Pikachu • Forest Route',42,49);x.font='14px system-ui';x.fillStyle='#d7f4d1';x.fillText('Explore freely • Find the hidden pond',42,74);
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const DPR=Math.min(2,devicePixelRatio||1);
+function resize(){canvas.width=innerWidth*DPR;canvas.height=innerHeight*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',resize);resize();
+
+const TILE=56, WORLD_W=116, WORLD_H=78, WW=WORLD_W*TILE, WH=WORLD_H*TILE;
+const atlas={
+  grass:'#79ad61', grass2:'#6ea158', path:'#c4a86c', water:'#3e94c2',
+  deep:'#2d78aa', flower:'#f6b5c9', leaf:'#9fc56e', trunk:'#70462d',
+  rock:'#73837b', stone:'#a8b0a4', cliff:'#6a7d54'
+};
+const keys=new Set();
+addEventListener('keydown',e=>{keys.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();if(e.key.toLowerCase()==='e')restPulse=1});
+addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+function hash(x,y){let n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n)}
+function noise(x,y){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi;const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);const u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return lerp(lerp(a,b,u),lerp(c,d,u),v)}
+
+const player={x:14*TILE,y:58*TILE,face:'down',walk:0,rest:0};
+const camera={x:0,y:0};
+let time=0,restPulse=0,weatherT=0;
+const effects=[];
+const spots=[
+ {x:17,y:54,name:'Sunny Trail'},{x:34,y:58,name:'Flower Field'},{x:52,y:44,name:'Mossy Creek'},
+ {x:69,y:31,name:'Waterfall View'},{x:89,y:19,name:'Old Forest'},{x:99,y:53,name:'Hidden Meadow'},
+ {x:77,y:63,name:'Ruins Clearing'}
+];
+
+function regionAt(px,py){
+ const gx=px/TILE,gy=py/TILE;
+ if(gx>63&&gx<78&&gy>25&&gy<40)return 'Waterfall View';
+ if(gx>43&&gx<62&&gy>37&&gy<57)return 'Mossy Creek';
+ if(gx>86&&gx<110&&gy>45&&gy<67)return 'Hidden Meadow';
+ if(gx>72&&gx<91&&gy>55&&gy<72)return 'Ruins Clearing';
+ if(gx>25&&gx<43&&gy>48&&gy<66)return 'Flower Field';
+ if(gx>78&&gy<42)return 'Old Forest';
+ return 'Sunny Trail';
 }
-function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000);loop.last=t;
- let dx=(keys['d']||keys['arrowright']?1:0)-(keys['a']||keys['arrowleft']?1:0),dy=(keys['s']||keys['arrowdown']?1:0)-(keys['w']||keys['arrowup']?1:0);
- let n=Math.hypot(dx,dy)||1,s=(keys['shift']?230:155);pik.vx=dx/n*s;pik.vy=dy/n*s;if(dx||dy){pik.anim+=dt;pik.face=dx<0?-1:dx>0?1:pik.face}
- let nx=pik.x+pik.vx*dt,ny=pik.y+pik.vy*dt;if(!blocked(nx,pik.y))pik.x=nx;if(!blocked(pik.x,ny))pik.y=ny;
- cam.x=clamp(pik.x-W/2,0,world.w-W);cam.y=clamp(pik.y-H/2,0,world.h-H);draw();requestAnimationFrame(loop)}
+
+function drawTileTexture(px,py,kind){
+ const n=noise(px*.11,py*.13);
+ ctx.fillStyle=kind==='path'?atlas.path:(kind==='water'?atlas.water:(n>.72?atlas.grass2:atlas.grass));
+ ctx.fillRect(px*TILE,py*TILE,TILE+1,TILE+1);
+ if(kind==='water'){
+   ctx.strokeStyle='#8dd5eb55';ctx.lineWidth=2;
+   const s=(time*.03+px*3+py*7)%TILE;
+   ctx.beginPath();ctx.moveTo(px*TILE+8+s,py*TILE+18);ctx.lineTo(px*TILE+30+s,py*TILE+14);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(px*TILE+20-s,py*TILE+40);ctx.lineTo(px*TILE+47-s,py*TILE+36);ctx.stroke();
+ } else {
+   const r=noise(px*.8,py*.8);
+   if(kind!=='path'&&r>.68){
+     ctx.strokeStyle='#477d3d66';ctx.lineWidth=1.5;
+     for(let k=0;k<2;k++){let xx=px*TILE+10+k*21+(n*7), yy=py*TILE+38;ctx.beginPath();ctx.moveTo(xx,yy+8);ctx.lineTo(xx-2,yy);ctx.lineTo(xx+2,yy+4);ctx.stroke()}
+   }
+ }
+}
+
+function worldBase(){
+ ctx.save();ctx.translate(-camera.x,-camera.y);
+ const sx=Math.floor(camera.x/TILE)-1, ex=Math.ceil((camera.x+innerWidth)/TILE)+1;
+ const sy=Math.floor(camera.y/TILE)-1, ey=Math.ceil((camera.y+innerHeight)/TILE)+1;
+ for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){
+   let kind='grass';
+   if(y>=55&&y<=60)kind='path';
+   if(x>=49&&x<=52&&y>=24&&y<=55)kind='water';
+   if(x>=50&&x<=56&&y>=50&&y<=53)kind='water';
+   if(x>=65&&x<=76&&y>=27&&y<=37)kind='water';
+   if(x>=67&&x<=72&&y>=20&&y<=27)kind='water';
+   drawTileTexture(x,y,kind);
+ }
+ // main trail forks
+ ctx.strokeStyle='#cbb17a';ctx.lineWidth=36;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-100,58*TILE);ctx.bezierCurveTo(22*TILE,55*TILE,34*TILE,59*TILE,55*TILE,57*TILE);ctx.bezierCurveTo(72*TILE,55*TILE,92*TILE,60*TILE,118*TILE,54*TILE);ctx.stroke();
+ ctx.lineWidth=22;ctx.beginPath();ctx.moveTo(36*TILE,58*TILE);ctx.bezierCurveTo(45*TILE,48*TILE,52*TILE,43*TILE,51*TILE,29*TILE);ctx.stroke();
+ // stream banks
+ ctx.strokeStyle='#d8e7bd';ctx.lineWidth=6;ctx.globalAlpha=.75;
+ ctx.beginPath();ctx.moveTo(49*TILE,22*TILE);ctx.bezierCurveTo(54*TILE,31*TILE,48*TILE,41*TILE,52*TILE,55*TILE);ctx.stroke();
+ ctx.globalAlpha=1;
+ drawBridge(51*TILE,38*TILE,0);
+ drawBridge(69*TILE,33*TILE,1);
+ drawCliffs();
+ drawTrees();
+ drawPlants();
+ drawLandmarks();
+ ctx.restore();
+}
+
+function drawBridge(cx,cy,vertical){
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(vertical?Math.PI/2:0);
+ ctx.fillStyle='#6f472c';ctx.fillRect(-52,-17,104,34);
+ for(let i=-42;i<=42;i+=14){ctx.fillStyle=i%28?'#a87343':'#c28b53';ctx.fillRect(i,-14,10,28)}
+ ctx.strokeStyle='#4a2d1e';ctx.lineWidth=4;ctx.strokeRect(-52,-17,104,34);
+ ctx.restore();
+}
+
+function drawCliffs(){
+ const places=[{x:62,y:23,w:11,h:2},{x:84,y:41,w:14,h:2},{x:75,y:69,w:8,h:2}];
+ for(const q of places){
+   ctx.fillStyle='#556b47';ctx.fillRect(q.x*TILE,q.y*TILE,q.w*TILE,q.h*TILE);
+   for(let i=0;i<q.w;i++){ctx.fillStyle=i%2?'#7a5439':'#8c6041';ctx.beginPath();ctx.moveTo((q.x+i)*TILE,q.y*TILE+q.h*TILE);ctx.lineTo((q.x+i+.5)*TILE,q.y*TILE+14);ctx.lineTo((q.x+i+1)*TILE,q.y*TILE+q.h*TILE);ctx.fill()}
+   ctx.fillStyle='#86ad64';ctx.fillRect(q.x*TILE,q.y*TILE,q.w*TILE,10);
+ }
+}
+
+function tree(px,py,type=0,scale=1){
+ const x=px*TILE,y=py*TILE;
+ if(x<camera.x-100||x>camera.x+innerWidth+100||y<camera.y-100||y>camera.y+innerHeight+100)return;
+ ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+ ctx.fillStyle='#4d3325';ctx.fillRect(-8,4,16,43);ctx.fillStyle='#6b472f';ctx.fillRect(-3,7,5,40);
+ const greens=type?['#2e6840','#3d7b46','#5b9652']:['#356f3d','#47864b','#69a65c'];
+ for(let i=0;i<4;i++){ctx.fillStyle=greens[i%3];ctx.beginPath();ctx.arc((i%2?13:-12)+(i-1)*2,-9-i*8,25-i*2,0,Math.PI*2);ctx.fill()}
+ ctx.fillStyle='#8bb86b55';ctx.beginPath();ctx.arc(-12,-20,12,0,7);ctx.fill();
+ ctx.restore();
+}
+
+function drawTrees(){
+ const baseSeed=Math.floor(camera.x/100);
+ for(let y=-2;y<WORLD_H+2;y+=3)for(let x=-2;x<WORLD_W+2;x+=3){
+   const n=hash(x+baseSeed,y);
+   if(n>.64){
+     const px=x+(n-.5)*1.8,py=y+(hash(y,x)-.5)*1.8;
+     if(px>43&&px<58&&py>35&&py<57)continue;
+     if(px>64&&px<78&&py>20&&py<40)continue;
+     tree(px,py,n>.84?1:0,.78+n*.32);
+   }
+ }
+ // intentional scenic groves
+ [[16,48],[19,51],[30,44],[38,46],[83,16],[88,22],[93,18],[104,50],[108,57],[78,65]].forEach((p,i)=>tree(p[0],p[1],i%2,.95));
+}
+
+function drawPlants(){
+ for(let i=0;i<190;i++){
+   const px=(i*37%113)+.3,py=(i*61%75)+.4;
+   if(px<camera.x/TILE-2||px>camera.x/TILE+innerWidth/TILE+2||py<camera.y/TILE-2||py>camera.y/TILE+innerHeight/TILE+2)continue;
+   const n=hash(i,9);
+   if(n>.58){
+     const x=px*TILE,y=py*TILE;ctx.strokeStyle='#427e43';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y+8);ctx.lineTo(x-3,y-4);ctx.moveTo(x,y+8);ctx.lineTo(x+4,y-2);ctx.stroke();
+     if(n>.82){ctx.fillStyle=n>.91?'#f7c6d9':'#f6e59a';for(let a=0;a<4;a++){ctx.beginPath();ctx.arc(x+Math.cos(a*1.57)*5,y-5+Math.sin(a*1.57)*4,3,0,7);ctx.fill()}}
+   }
+ }
+ // tall grass patches
+ [[8,57,5,2],[27,62,6,3],[88,57,7,3],[99,61,4,2],[58,52,4,2]].forEach(p=>{
+   for(let yy=0;yy<p[3];yy++)for(let xx=0;xx<p[2];xx++){let x=(p[0]+xx)*TILE+10,y=(p[1]+yy)*TILE+45;ctx.strokeStyle='#3f7f3d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y+9);ctx.lineTo(x-4,y-7);ctx.moveTo(x,y+9);ctx.lineTo(x+5,y-5);ctx.stroke()}
+ });
+}
+
+function drawLandmarks(){
+ // waterfall
+ const wx=70*TILE,wy=20*TILE;
+ ctx.fillStyle='#c7e8d6';ctx.fillRect(wx-10,wy,10,7*TILE);
+ ctx.fillStyle='#64b9ddaa';ctx.fillRect(wx,wy,44,7*TILE);
+ for(let i=0;i<5;i++){ctx.strokeStyle='#dff9ff99';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(wx+6+i*8,wy+8);ctx.lineTo(wx+8+i*8,wy+7*TILE-12);ctx.stroke()}
+ ctx.fillStyle='#2e80a7';ctx.beginPath();ctx.ellipse(wx+22,wy+7*TILE,58,20,0,0,7);ctx.fill();
+ // ancient tree
+ const ax=82*TILE,ay=62*TILE;ctx.fillStyle='#513625';ctx.fillRect(ax-18,ay-50,36,70);ctx.fillStyle='#315f3b';ctx.beginPath();ctx.arc(ax,ay-65,46,0,7);ctx.arc(ax-35,ay-48,31,0,7);ctx.arc(ax+34,ay-45,32,0,7);ctx.fill();ctx.strokeStyle='#9a7045';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(ax,ay+18);ctx.lineTo(ax-5,ay-35);ctx.moveTo(ax,ay-3);ctx.lineTo(ax-26,ay-25);ctx.stroke();
+ // ruins ring
+ const rx=78*TILE,ry=65*TILE;ctx.strokeStyle='#9ca891';ctx.lineWidth=10;ctx.beginPath();ctx.arc(rx,ry,52,0,7);ctx.stroke();for(let i=0;i<7;i++){const a=i*Math.PI*2/7;ctx.fillStyle='#747d6e';ctx.fillRect(rx+Math.cos(a)*52-7,ry+Math.sin(a)*52-15,14,30)}
+}
+
+function drawPikachu(){
+ ctx.save();ctx.translate(player.x-camera.x,player.y-camera.y);
+ const moving=player.walk>0, bob=moving?Math.sin(player.walk*15)*2:Math.sin(time*2.2)*1.3;
+ ctx.translate(0,bob);
+ // shadow
+ ctx.fillStyle='#18321c55';ctx.beginPath();ctx.ellipse(0,26,24,8,0,0,7);ctx.fill();
+ const flip=player.face==='left'?-1:1;ctx.scale(flip,1);
+ // tail with animated sway
+ ctx.save();ctx.rotate(Math.sin(time*3)*.04);ctx.fillStyle='#f1c32c';ctx.beginPath();ctx.moveTo(-17,-2);ctx.lineTo(-38,-17);ctx.lineTo(-29,-31);ctx.lineTo(-11,-18);ctx.closePath();ctx.fill();ctx.strokeStyle='#8d681d';ctx.stroke();ctx.restore();
+ // body
+ ctx.fillStyle='#f3c62d';ctx.beginPath();ctx.ellipse(0,7,20,25,0,0,7);ctx.fill();ctx.strokeStyle='#8d681d';ctx.stroke();
+ // arms
+ ctx.fillStyle='#eab72a';ctx.beginPath();ctx.ellipse(-19,7,6,13,-.4,0,7);ctx.ellipse(19,7,6,13,.4,0,7);ctx.fill();
+ // ears
+ ctx.fillStyle='#f3c62d';ctx.beginPath();ctx.moveTo(-14,-17);ctx.lineTo(-24,-51);ctx.lineTo(-5,-41);ctx.closePath();ctx.moveTo(14,-17);ctx.lineTo(24,-51);ctx.lineTo(5,-41);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#29231d';ctx.beginPath();ctx.moveTo(-22,-49);ctx.lineTo(-24,-41);ctx.lineTo(-14,-45);ctx.closePath();ctx.moveTo(22,-49);ctx.lineTo(24,-41);ctx.lineTo(14,-45);ctx.closePath();ctx.fill();
+ // head
+ ctx.fillStyle='#f7cd35';ctx.beginPath();ctx.ellipse(0,-18,24,23,0,0,7);ctx.fill();ctx.stroke();
+ // eyes + cheeks
+ ctx.fillStyle='#171717';ctx.beginPath();ctx.arc(-9,-20,3.5,0,7);ctx.arc(9,-20,3.5,0,7);ctx.fill();
+ ctx.fillStyle='#e84b43';ctx.beginPath();ctx.arc(-17,-11,4.6,0,7);ctx.arc(17,-11,4.6,0,7);ctx.fill();
+ ctx.fillStyle='#2f1e18';ctx.beginPath();ctx.arc(0,-12,1.8,0,7);ctx.fill();
+ // feet
+ ctx.fillStyle='#d6a71f';ctx.beginPath();ctx.ellipse(-10,28,8,4,0,0,7);ctx.ellipse(10,28,8,4,0,0,7);ctx.fill();
+ // idle ear twitch
+ if(!moving){ctx.strokeStyle='#f9df68';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,-43);ctx.lineTo(-18,-48);ctx.moveTo(14,-43);ctx.lineTo(18,-48);ctx.stroke()}
+ ctx.restore();
+}
+
+function drawAtmosphere(){
+ const cycle=(time/50)%1;
+ let mode=cycle<.22?'Morning':cycle<.48?'Afternoon':cycle<.64?'Sunset':cycle<.82?'Night':'Dawn';
+ let alpha=mode==='Night'?.42:mode==='Sunset'?.16:0;
+ if(alpha){ctx.fillStyle=mode==='Night'?'#10285a':'#d8894a';ctx.fillRect(0,0,innerWidth,innerHeight);ctx.fillStyle='#fff';for(let i=0;i<35;i++){let sx=(i*97+time*3)%innerWidth,sy=(i*53)%innerHeight;ctx.globalAlpha=.5;ctx.fillRect(sx,sy,2,2)}ctx.globalAlpha=1}
+ // wind particles
+ for(let i=0;i<16;i++){let px=(i*139+time*20)%innerWidth,py=(i*71+Math.sin(time+i)*12)%innerHeight;ctx.strokeStyle='#e6f6d055';ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+12,py-3);ctx.stroke()}
+ // rain every 4 cycles
+ if(Math.floor(time/40)%4===3){ctx.strokeStyle='#9ed1e455';ctx.lineWidth=1;for(let i=0;i<100;i++){let rx=(i*83+time*180)%innerWidth,ry=(i*47+time*280)%innerHeight;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-5,ry+13);ctx.stroke()}}
+ document.getElementById('weather').textContent=mode+' · '+(Math.floor(time/40)%4===3?'Rain':'Clear');
+}
+
+function loop(ms){
+ const dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;time+=dt;
+ let dx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0);
+ let dy=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
+ const len=Math.hypot(dx,dy)||1, speed=keys.has('shift')?205:145;
+ if(dx||dy){dx/=len;dy/=len;player.walk+=dt*speed/22;if(Math.abs(dx)>Math.abs(dy))player.face=dx>0?'right':'left';else player.face=dy>0?'down':'up'}
+ else player.walk=0;
+ const nx=clamp(player.x+dx*speed*dt,26,WW-26),ny=clamp(player.y+dy*speed*dt,26,WH-26);
+ // water is traversable slowly, cliffs and landmark cores gently constrain movement
+ const water=(nx/TILE>48&&nx/TILE<58&&ny/TILE>23&&ny/TILE<56)||(nx/TILE>64&&nx/TILE<78&&ny/TILE>26&&ny/TILE<39);
+ if(!water){player.x=nx;player.y=ny}else{player.x=lerp(player.x,nx,.35);player.y=lerp(player.y,ny,.35)}
+ if(restPulse>0){player.rest+=dt*4;restPulse-=dt;if(restPulse<0)restPulse=0}
+ camera.x=lerp(camera.x,clamp(player.x-innerWidth/2,0,WW-innerWidth),.12);
+ camera.y=lerp(camera.y,clamp(player.y-innerHeight/2,0,WH-innerHeight),.12);
+ ctx.clearRect(0,0,innerWidth,innerHeight);worldBase();drawPikachu();drawAtmosphere();
+ document.getElementById('place').textContent=regionAt(player.x,player.y);
+ requestAnimationFrame(loop);
+}
 requestAnimationFrame(loop);
-</script></body></html>
+</script>
+</body>
+</html>
