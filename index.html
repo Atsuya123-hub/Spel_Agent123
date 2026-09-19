@@ -1,49 +1,117 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pikachu Forest Dream</title><style>
-html,body{margin:0;height:100%;overflow:hidden;background:#07150e;font-family:system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh;image-rendering:auto}.ui{position:fixed;inset:0;pointer-events:none}.card,.badge,.hint{position:absolute;background:#06130dcc;border:1px solid #ffffff20;backdrop-filter:blur(8px);color:#fff}.card{left:16px;top:16px;padding:11px 14px;border-radius:15px}.title{font-weight:800}.sub{font-size:12px;color:#cfe8ca;margin-top:3px}.badge{right:16px;top:16px;padding:8px 11px;border-radius:999px;font-size:11px}.hint{left:50%;bottom:15px;transform:translateX(-50%);padding:8px 13px;border-radius:999px;font-size:12px;color:#e5f5e1}
-</style></head><body><canvas id="game"></canvas><div class="ui"><div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div><div class="badge" id="weather">Morning · Clear</div><div class="hint">WASD / arrows · Shift to trot · E to rest</div></div>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pikachu Forest Dream</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#08150f;font-family:system-ui,sans-serif}
+canvas{display:block;width:100vw;height:100vh;image-rendering:auto}
+.ui{position:fixed;inset:0;pointer-events:none}.card,.badge,.hint{position:absolute;background:#06130dd9;border:1px solid #ffffff22;backdrop-filter:blur(9px);color:#fff}
+.card{left:16px;top:16px;padding:11px 14px;border-radius:15px}.title{font-weight:800}.sub{font-size:12px;color:#d3ead0;margin-top:3px}
+.badge{right:16px;top:16px;padding:8px 11px;border-radius:999px;font-size:11px}.hint{left:50%;bottom:15px;transform:translateX(-50%);padding:8px 13px;border-radius:999px;font-size:12px;color:#e5f5e1}
+</style></head><body>
+<canvas id="game"></canvas><div class="ui"><div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div><div class="badge" id="weather">Morning · Clear</div><div class="hint">WASD / arrows · Shift to trot · E to rest</div></div>
 <script>
-const c=document.getElementById('game'),g=c.getContext('2d'),img=new Image();img.src='assets/pokemon-forest-sprites.webp';
-let dpr=Math.min(2,devicePixelRatio||1),t=0;function size(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;g.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',size);size();
-const K=new Set;addEventListener('keydown',e=>{K.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault()});addEventListener('keyup',e=>K.delete(e.key.toLowerCase()));
-const S=56,W=116,H=78,WW=W*S,WH=H*S,P={x:15*S,y:57*S,face:2,walk:0},C={x:0,y:0};const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const n=(x,y)=>{let v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)};
-/* The supplied 1536x1024 sheet was reduced to 384x256 for the web build. All environment and Pikachu art below is sampled from that sheet. */
-const A={grass:[2,7,18,19],sand:[43,7,18,19],stone:[61,7,18,19],wood:[80,7,18,19],water:[103,7,18,19],stream:[147,7,18,19],tall:[2,33,18,19],flowers:[43,33,18,19],leaves:[61,33,18,19],moss:[80,33,18,19],rock:[207,94,18,18],bush:[103,94,18,19],plant:[123,94,18,19],fern:[145,94,18,19],tree:[3,94,18,19],pine:[42,94,18,19],fallen:[61,94,18,19],bridge:[289,7,18,19],waterfall:[145,33,18,19],cave:[287,94,18,19],flowerField:[175,206,18,19]};
-function atlas(name,x,y,w=S,h=S){let a=A[name];if(!a)return;g.drawImage(img,a[0],a[1],a[2],a[3],x,y,w,h)}
-function tile(x,y,name){atlas(name,x*S,y*S,S+1,S+1)}
-function region(){let x=P.x/S,y=P.y/S;if(x>62&&x<79&&y>22&&y<41)return'Waterfall View';if(x>42&&x<61&&y>35&&y<57)return'Mossy Creek';if(x>84&&y>45)return'Hidden Meadow';if(x>72&&x<91&&y>55)return'Forest Ruins';if(x>25&&x<44&&y>48)return'Flower Field';if(x>77&&y<42)return'Old Forest';return'Sunny Trail'}
-function world(){
- g.save();g.translate(-C.x,-C.y);let sx=Math.floor(C.x/S)-1,ex=Math.ceil((C.x+innerWidth)/S)+1,sy=Math.floor(C.y/S)-1,ey=Math.ceil((C.y+innerHeight)/S)+1;
- for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){let z='grass';if(y>=55&&y<=60)z=(n(x,y)>.65?'sand':'grass');if(x>=49&&x<=52&&y>=23&&y<=55)z='water';if(x>=65&&x<=76&&y>=27&&y<=37)z='water';tile(x,y,z)}
- // asset-based paths
- for(let x=-2;x<W;x+=1){tile(x,56,'sand');tile(x,57,'sand');tile(x,58,'sand')}
- for(let y=28;y<56;y++)tile(51,y,y%3?'water':'stream');
- // bridges from the supplied sheet
- for(let x=47;x<55;x++)tile(x,38,'bridge');for(let x=68;x<76;x++)tile(x,33,'bridge');
- // dense asset vegetation
- for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){let q=n(x,y);if(q>.63){let type=q>.9?'pine':q>.82?'bush':q>.74?'fern':'tree';if((x>45&&x<58&&y>34&&y<58)||(x>63&&x<79&&y>20&&y<41))continue;atlas(type,x*S-9,y*S-12,72,76)}}
- // flowers / tall grass / rocks
- for(let i=0;i<180;i++){let x=(i*37%113),y=(i*61%74);if(n(i,9)>.56)atlas(n(i,9)>.78?'flowers':'tall',x*S,y*S,44,46)}
- for(let i=0;i<65;i++){let x=(i*71%112),y=(i*43%74);if(n(i,2)>.45)atlas('rock',x*S,y*S+10,40,40)}
- // scenic waterfall and cave
- for(let y=20;y<28;y++)atlas('waterfall',69*S,y*S,54,58);
- atlas('cave',91*S,18*S,70,70);atlas('flowerField',31*S,50*S,75,75);
- g.restore()
+const c=document.getElementById('game'),g=c.getContext('2d'),sheet=new Image();
+sheet.src='assets/pokemon-forest-sprites.webp';
+let dpr=Math.min(2,devicePixelRatio||1),t=0,rest=0;
+function resize(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;g.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+const K=new Set;addEventListener('keydown',e=>{K.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();if(e.key.toLowerCase()==='e')rest=.9});addEventListener('keyup',e=>K.delete(e.key.toLowerCase()));
+const S=56,W=116,H=78,WW=W*S,WH=H*S,P={x:15*S,y:57*S,face:'down',walk:0},C={x:0,y:0};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(x,y)=>{let v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)};
+/* This is the supplied sprite-sheet artwork. The web build keeps the sheet intact and samples
+   the actual terrain/object sprites for the complete world instead of drawing replacement trees. */
+const A={
+ grass:[2,7,18,19],dirt:[21,7,18,19],sand:[43,7,18,19],stone:[61,7,18,19],wood:[80,7,18,19],
+ water:[103,7,18,19],flow:[120,7,18,19],stream:[138,7,18,19],pond:[156,7,18,19],
+ tall:[2,33,18,19],flowergrass:[21,33,18,19],flowers:[43,33,18,19],leaves:[61,33,18,19],moss:[80,33,18,19],
+ shallow:[103,33,18,19],edge:[120,33,18,19],waterfalltop:[138,33,18,19],waterfall:[156,33,18,19],
+ cliff:[198,7,18,19],corner:[216,7,18,19],wall:[233,7,18,19],clifftop:[251,7,18,19],
+ side:[198,33,18,19],corner2:[216,33,18,19],ledge:[233,33,18,19],stairs:[251,33,18,19],
+ bridge:[289,7,18,19],stonebridge:[307,7,18,19],ropebridge:[324,7,18,19],logbridge:[342,7,18,19],
+ smallbridge:[289,33,18,19],crossing:[307,33,18,19],plank:[324,33,18,19],steps:[342,33,18,19],
+ tree:[3,94,18,19],treeTall:[21,94,18,19],pine:[42,94,18,19],cherry:[61,94,18,19],autumn:[80,94,18,19],
+ bigtree:[3,119,18,19],dead:[21,119,18,19],fallen:[42,119,18,19],stump:[61,119,18,19],root:[80,119,18,19],
+ bush:[103,94,18,19],flowerbush:[121,94,18,19],plant:[140,94,18,19],fern:[158,94,18,19],leaf:[176,94,18,19],
+ smallplant:[103,119,18,19],tuft:[121,119,18,19],weeds:[140,119,18,19],reeds:[158,119,18,19],flowerpatch:[176,119,18,19],
+ rock:[198,94,18,19],boulder:[216,94,18,19],smallrock:[233,94,18,19],mossyrock:[251,94,18,19],rockpile:[269,94,18,19],
+ log:[198,119,18,19],mushroom:[216,119,18,19],cluster:[233,119,18,19],brokenlog:[251,119,18,19],hollow:[269,119,18,19],
+ cave:[287,94,18,19],interior:[305,94,18,19],ruins:[323,94,18,19],pillar:[341,94,18,19],arch:[359,94,18,19],
+ ruinedwall:[287,119,18,19],statue:[305,119,18,19],columns:[323,119,18,19],hidden:[341,119,18,19],secret:[359,119,18,19],
+ bench:[3,156,18,19],sign:[21,156,18,19],fence:[43,156,18,19],torch:[61,156,18,19],lantern:[80,156,18,19],
+ campfire:[3,181,18,19],tent:[21,181,18,19],well:[43,181,18,19],flowerpot:[61,181,18,19],mailbox:[80,181,18,19],
+ crate:[3,206,18,19],barrel:[21,206,18,19],basket:[43,206,18,19],cart:[61,206,18,19]
+};
+function asset(name,x,y,w=70,h=74){const a=A[name];if(!a)return;g.imageSmoothingEnabled=false;g.drawImage(sheet,a[0],a[1],a[2],a[3],x,y,w,h)}
+function tile(x,y,name){asset(name,x*S,y*S,S+1,S+1)}
+function placeAsset(name,gx,gy,scale=1){asset(name,gx*S-35*scale,gy*S-62*scale,70*scale,74*scale)}
+function region(){const x=P.x/S,y=P.y/S;if(x>62&&x<79&&y>20&&y<42)return'Waterfall View';if(x>42&&x<61&&y>34&&y<58)return'Mossy Creek';if(x>84&&y>45)return'Hidden Meadow';if(x>72&&x<92&&y>55)return'Forest Ruins';if(x>25&&x<44&&y>48)return'Flower Field';if(x>77&&y<42)return'Old Forest';return'Sunny Trail'}
+
+function ground(){
+ let sx=Math.floor(C.x/S)-1,ex=Math.ceil((C.x+innerWidth)/S)+1,sy=Math.floor(C.y/S)-1,ey=Math.ceil((C.y+innerHeight)/S)+1;
+ for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){
+   let z='grass';
+   if(y>=55&&y<=59)z=(rnd(x,y)>.82?'dirt':'sand');
+   if(x>=48&&x<=53&&y>=22&&y<=56)z=(rnd(x,y)>.7?'flow':'water');
+   if(x>=64&&x<=77&&y>=27&&y<=38)z='water';
+   if(x>=67&&x<=72&&y>=20&&y<=27)z='waterfalltop';
+   tile(x,y,z);
+ }
+ // Actual sheet paths and crossings.
+ for(let x=-2;x<W;x++)for(let y=55;y<=58;y++)if(rnd(x,y)>.12)tile(x,y,rnd(x,y)>.72?'dirt':'sand');
+ for(let y=27;y<56;y++)tile(51,y,y%4===0?'stream':'water');
+ for(let x=48;x<55;x++)tile(x,38,'bridge');
+ for(let x=68;x<76;x++)tile(x,33,'stonebridge');
+ // cliffs made from the actual cliff sprites.
+ for(let x=63;x<76;x++)tile(x,23,x===63?'corner':x===75?'corner':'cliff');
+ for(let x=84;x<98;x++)tile(x,42,'wall');
 }
+
+function vegetation(){
+ const sx=Math.floor(C.x/S)-2,ex=Math.ceil((C.x+innerWidth)/S)+2,sy=Math.floor(C.y/S)-2,ey=Math.ceil((C.y+innerHeight)/S)+2;
+ for(let y=sy;y<ey;y+=2)for(let x=sx;x<ex;x+=2){
+   const q=rnd(x,y),gx=x+rnd(x+3,y+1),gy=y+rnd(y+2,x+5);
+   if((gx>45&&gx<59&&gy>34&&gy<59)||(gx>63&&gx<79&&gy>20&&gy<42))continue;
+   if(q>.72)placeAsset(q>.94?'treeTall':q>.88?'pine':q>.81?'bigtree':'tree',gx,gy,.95+rnd(x,y)*.3);
+   else if(q>.58)placeAsset(q>.76?'flowerbush':q>.66?'bush':'fern',gx,gy,.65);
+ }
+ for(let i=0;i<170;i++){const gx=rnd(i,4)*112+2,gy=rnd(i,8)*73+3,q=rnd(i,12);if(q>.48)placeAsset(q>.82?'flowers':q>.64?'flowergrass':'tall',gx,gy,.55)}
+ for(let i=0;i<70;i++){const gx=rnd(i,20)*112+2,gy=rnd(i,23)*73+3,q=rnd(i,30);if(q>.38)placeAsset(q>.78?'mossyrock':q>.55?'smallrock':'rock',gx,gy,.58)}
+ for(let i=0;i<38;i++){const gx=rnd(i,41)*112+2,gy=rnd(i,42)*73+3;placeAsset(i%3?'mushroom':'log',gx,gy,.6)}
+}
+
+function landmarks(){
+ placeAsset('waterfall',70,26,1.15);placeAsset('cave',91,19,1.05);
+ placeAsset('ruins',78,64,1.0);placeAsset('arch',87,63,.9);
+ placeAsset('bigtree',82,62,1.25);placeAsset('bench',18,53,.75);placeAsset('campfire',21,54,.65);
+ placeAsset('tent',23,53,.7);placeAsset('well',37,58,.7);
+ placeAsset('flowerpot',40,57,.55);placeAsset('fallen',56,52,.8);
+}
+
+function world(){g.save();g.translate(-C.x,-C.y);ground();vegetation();landmarks();g.restore()}
+
 function pika(){
- g.save();g.translate(P.x-C.x,P.y-C.y);let bob=P.walk?Math.sin(P.walk*12)*2:Math.sin(t*2)*1.2;g.translate(0,bob);
- // Pikachu idle frames are the bottom-left Pikachu frames on the supplied sheet.
- // Source frame strip is around x=4..58, y=224..245 in the reduced atlas.
- let frame=P.walk?Math.floor(P.walk*1.8)%4:Math.floor(t*1.5)%4, sx=4+frame*14, sy=225;
- g.imageSmoothingEnabled=false;g.drawImage(img,sx,sy,13,19,-27,-38,54,78);g.restore()
+ g.save();g.translate(P.x-C.x,P.y-C.y);
+ const moving=P.walk>0,bob=moving?Math.sin(P.walk*14)*2:Math.sin(t*2.2)*1.2;g.translate(0,bob);
+ if(rest>0){g.globalAlpha=.25+.75*rest;g.beginPath();g.strokeStyle='#fff3';g.arc(0,0,34+Math.sin(t*7)*3,0,7);g.stroke()}
+ // Supplied Pikachu frames, from the sprite-sheet strip at the bottom of the sheet.
+ const frame=moving?Math.floor(P.walk*1.7)%4:Math.floor(t*1.4)%5;
+ const sx=4+frame*14,sy=225;
+ g.imageSmoothingEnabled=false;g.drawImage(sheet,sx,sy,13,19,-27,-38,54,78);g.restore()
 }
+
 function atmosphere(){
- let phase=(t/50)%1,mode=phase<.22?'Morning':phase<.48?'Afternoon':phase<.64?'Sunset':phase<.82?'Night':'Dawn';let rain=Math.floor(t/40)%4===3;
- if(mode==='Night'){g.fillStyle='#0b194f66';g.fillRect(0,0,innerWidth,innerHeight);for(let i=0;i<35;i++){g.fillStyle='#fff8';g.fillRect((i*97+t*3)%innerWidth,(i*53)%innerHeight,2,2)}}else if(mode==='Sunset'){g.fillStyle='#d87b3b22';g.fillRect(0,0,innerWidth,innerHeight)}
+ const phase=(t/50)%1,mode=phase<.22?'Morning':phase<.48?'Afternoon':phase<.64?'Sunset':phase<.82?'Night':'Dawn',rain=Math.floor(t/40)%4===3;
+ if(mode==='Night'){g.fillStyle='#08184b77';g.fillRect(0,0,innerWidth,innerHeight);for(let i=0;i<38;i++){g.fillStyle='#fff9';g.fillRect((i*97+t*3)%innerWidth,(i*53)%innerHeight,2,2)}}
+ if(mode==='Sunset'){g.fillStyle='#d67c3a22';g.fillRect(0,0,innerWidth,innerHeight)}
+ if(rain){g.strokeStyle='#a7d8ef55';for(let i=0;i<120;i++){let x=(i*83+t*180)%innerWidth,y=(i*47+t*280)%innerHeight;g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+13);g.stroke()}}
  for(let i=0;i<18;i++){let x=(i*139+t*20)%innerWidth,y=(i*71+Math.sin(t+i)*12)%innerHeight;g.strokeStyle='#e8f8df44';g.beginPath();g.moveTo(x,y);g.lineTo(x+12,y-3);g.stroke()}
- if(rain){g.strokeStyle='#a7d8ef55';for(let i=0;i<110;i++){let x=(i*83+t*180)%innerWidth,y=(i*47+t*280)%innerHeight;g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+13);g.stroke()}}
  document.getElementById('weather').textContent=mode+' · '+(rain?'Rain':'Clear');document.getElementById('place').textContent=region()
 }
-function loop(ms){let dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;t+=dt;let dx=(K.has('d')||K.has('arrowright')?1:0)-(K.has('a')||K.has('arrowleft')?1:0),dy=(K.has('s')||K.has('arrowdown')?1:0)-(K.has('w')||K.has('arrowup')?1:0),l=Math.hypot(dx,dy)||1,sp=K.has('shift')?210:150;if(dx||dy){dx/=l;dy/=l;P.walk+=dt*sp/22;if(Math.abs(dx)>Math.abs(dy))P.face=dx>0?3:1;else P.face=dy>0?2:0}else P.walk=0;
- P.x=clamp(P.x+dx*sp*dt,30,WW-30);P.y=clamp(P.y+dy*sp*dt,30,WH-30);C.x+=(clamp(P.x-innerWidth/2,0,WW-innerWidth)-C.x)*.12;C.y+=(clamp(P.y-innerHeight/2,0,WH-innerHeight)-C.y)*.12;
- g.clearRect(0,0,innerWidth,innerHeight);world();pika();atmosphere();requestAnimationFrame(loop)}img.onload=()=>requestAnimationFrame(loop);
+
+function loop(ms){const dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;t+=dt;
+ let dx=(K.has('d')||K.has('arrowright')?1:0)-(K.has('a')||K.has('arrowleft')?1:0),dy=(K.has('s')||K.has('arrowdown')?1:0)-(K.has('w')||K.has('arrowup')?1:0),l=Math.hypot(dx,dy)||1,sp=K.has('shift')?210:150;
+ if(dx||dy){dx/=l;dy/=l;P.walk+=dt*sp/22;if(Math.abs(dx)>Math.abs(dy))P.face=dx>0?'right':'left';else P.face=dy>0?'down':'up'}else P.walk=0;
+ P.x=clamp(P.x+dx*sp*dt,30,WW-30);P.y=clamp(P.y+dy*sp*dt,30,WH-30);
+ C.x+=(clamp(P.x-innerWidth/2,0,WW-innerWidth)-C.x)*.12;C.y+=(clamp(P.y-innerHeight/2,0,WH-innerHeight)-C.y)*.12;
+ if(rest>0)rest-=dt;g.clearRect(0,0,innerWidth,innerHeight);world();pika();atmosphere();requestAnimationFrame(loop)}
+sheet.onload=()=>requestAnimationFrame(loop);
 </script></body></html>
