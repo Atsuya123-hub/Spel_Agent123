@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pikachu's Forest Adventure</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#10251a;font-family:system-ui,sans-serif}
+body{display:grid;place-items:center} canvas{width:min(100vw,177.78vh);height:min(56.25vw,100vh);image-rendering:auto;box-shadow:0 0 40px #000}
+#help{position:fixed;left:16px;bottom:12px;color:#fff8;background:#07150dcc;padding:8px 12px;border-radius:10px;font-size:14px;backdrop-filter:blur(5px)}
+</style>
+</head>
+<body>
+<canvas id="game" width="1280" height="720"></canvas>
+<div id="help">WASD / Arrow Keys: move &nbsp; • &nbsp; Shift: run &nbsp; • &nbsp; E: interact</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');
+const W=1280,H=720,T=48,world={w:80*T,h:55*T};
+const keys={}; addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+const rnd=(a,b)=>Math.random()*(b-a)+a, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const trees=[],flowers=[],rocks=[],pond={x:31*T,y:7*T,w:12*T,h:10*T};
+for(let i=0;i<145;i++){let p={x:rnd(1,79)*T,y:rnd(1,54)*T,r:rnd(22,31)};if(p.x>pond.x-35&&p.x<pond.x+pond.w+35&&p.y>pond.y-35&&p.y<pond.y+pond.h+35){i--;continue}trees.push(p)}
+for(let i=0;i<260;i++) flowers.push({x:rnd(0,world.w),y:rnd(0,world.h),c:Math.random()<.5?'#ffd5e8':'#fff0a5'});
+for(let i=0;i<55;i++)rocks.push({x:rnd(0,world.w),y:rnd(0,world.h),r:rnd(7,15)});
+const pik={x:14*T,y:28*T,vx:0,vy:0,face:1,anim:0};
+const cam={x:0,y:0};
+function blocked(px,py){if(px<18||py<18||px>world.w-18||py>world.h-18)return true;
+ if(px>pond.x-22&&px<pond.x+pond.w+22&&py>pond.y-22&&py<pond.y+pond.h+22)return true;
+ return trees.some(t=>Math.hypot(px-t.x,py-t.y)<t.r+16)||rocks.some(r=>Math.hypot(px-r.x,py-r.y)<r.r+13)}
+function drawTree(t){x.save();x.translate(t.x,t.y);x.fillStyle='#5a3824';x.fillRect(-7,3,14,35);x.fillStyle='#3b2419';x.fillRect(-3,8,5,30);
+ for(let i=0;i<3;i++){x.fillStyle=i?'#2f6b3c':'#3f7d45';x.beginPath();x.arc(rnd(-13,13),rnd(-22,8),rnd(17,25),0,7);x.fill()}
+ x.fillStyle='#5b9852';x.beginPath();x.arc(-10,-7,14,0,7);x.arc(11,-5,16,0,7);x.arc(0,-20,17,0,7);x.fill();x.restore()}
+function drawPika(){x.save();x.translate(pik.x,pik.y);let bob=Math.sin(pik.anim*10)*2;x.translate(0,bob);
+ // shadow
+ x.fillStyle='#18321c66';x.beginPath();x.ellipse(0,24,23,8,0,0,7);x.fill();
+ // tail
+ x.save();x.scale(pik.face,1);x.fillStyle='#f5c928';x.beginPath();x.moveTo(-18,-4);x.lineTo(-37,-18);x.lineTo(-29,-31);x.lineTo(-14,-18);x.closePath();x.fill();x.strokeStyle='#9c7414';x.lineWidth=2;x.stroke();x.restore();
+ // body
+ x.fillStyle='#f4c62b';x.beginPath();x.ellipse(0,6,20,25,0,0,7);x.fill();x.strokeStyle='#9c7414';x.stroke();
+ // ears
+ x.fillStyle='#f4c62b';x.beginPath();x.moveTo(-14,-17);x.lineTo(-24,-51);x.lineTo(-5,-41);x.closePath();x.moveTo(14,-17);x.lineTo(24,-51);x.lineTo(5,-41);x.closePath();x.fill();
+ x.fillStyle='#202020';x.beginPath();x.moveTo(-22,-48);x.lineTo(-24,-41);x.lineTo(-14,-45);x.closePath();x.moveTo(22,-48);x.lineTo(24,-41);x.lineTo(14,-45);x.closePath();x.fill();
+ // head
+ x.fillStyle='#f7cc32';x.beginPath();x.ellipse(0,-18,24,23,0,0,7);x.fill();x.stroke();
+ // eyes
+ x.fillStyle='#151515';for(const ex of [-9,9]){x.beginPath();x.arc(ex,-20,3.5,0,7);x.fill()}x.fillStyle='#e64b42';for(const ex of [-17,17]){x.beginPath();x.arc(ex,-12,4.5,0,7);x.fill()}
+ x.fillStyle='#3d241b';x.beginPath();x.arc(0,-13,1.8,0,7);x.fill();
+ // cheeks highlight
+ x.fillStyle='#fff2a3';x.globalAlpha=.55;x.beginPath();x.arc(-18,-14,2,0,7);x.arc(18,-14,2,0,7);x.fill();x.globalAlpha=1;
+ // feet
+ x.fillStyle='#dcae1e';x.beginPath();x.ellipse(-10,28,8,4,0,0,7);x.ellipse(10,28,8,4,0,0,7);x.fill();
+ x.restore()}
+function draw(){x.clearRect(0,0,W,H);let grd=x.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#87c8ed');grd.addColorStop(.55,'#b8e3a0');grd.addColorStop(1,'#6eae62');x.fillStyle=grd;x.fillRect(0,0,W,H);
+ x.save();x.translate(-cam.x,-cam.y);
+ // ground texture
+ x.fillStyle='#72ad61';x.fillRect(0,0,world.w,world.h);
+ for(let i=0;i<850;i++){let xx=(i*83)%world.w,yy=(i*137)%world.h;x.strokeStyle=i%3?'#5d9954':'#86bd6e';x.lineWidth=2;x.beginPath();x.moveTo(xx,yy);x.lineTo(xx+3,yy-5);x.stroke()}
+ // paths
+ x.fillStyle='#c6a86c';x.beginPath();x.moveTo(0,34*T);x.bezierCurveTo(18*T,30*T,25*T,37*T,40*T,34*T);x.bezierCurveTo(56*T,30*T,67*T,35*T,80*T,31*T);x.lineTo(80*T,37*T);x.bezierCurveTo(64*T,41*T,52*T,36*T,39*T,40*T);x.bezierCurveTo(25*T,43*T,13*T,36*T,0,40*T);x.fill();
+ // pond
+ x.fillStyle='#4e9fd0';x.beginPath();x.roundRect(pond.x,pond.y,pond.w,pond.h,55);x.fill();x.strokeStyle='#d4efcf';x.lineWidth=8;x.stroke();
+ for(let i=0;i<25;i++){x.fillStyle='#e9d36a';let xx=pond.x+rnd(20,pond.w-20),yy=pond.y+rnd(20,pond.h-20);x.beginPath();x.arc(xx,yy,3,0,7);x.fill()}
+ flowers.forEach(f=>{if(f.x>cam.x-30&&f.x<cam.x+W+30&&f.y>cam.y-30&&f.y<cam.y+H+30){x.strokeStyle='#477d3e';x.beginPath();x.moveTo(f.x,f.y+5);x.lineTo(f.x,f.y-2);x.stroke();x.fillStyle=f.c;x.beginPath();x.arc(f.x,f.y-3,3,0,7);x.fill()}});
+ rocks.forEach(r=>{x.fillStyle='#718070';x.beginPath();x.ellipse(r.x,r.y,r.r,r.r*.7,-.2,0,7);x.fill();x.fillStyle='#98a897';x.beginPath();x.ellipse(r.x-3,r.y-3,r.r*.45,r.r*.25,-.2,0,7);x.fill()});
+ trees.forEach(drawTree);drawPika();x.restore();
+ // HUD
+ x.fillStyle='#092316dd';x.beginPath();x.roundRect(22,20,260,74,16);x.fill();x.fillStyle='#fff';x.font='700 20px system-ui';x.fillText('Pikachu • Forest Route',42,49);x.font='14px system-ui';x.fillStyle='#d7f4d1';x.fillText('Explore freely • Find the hidden pond',42,74);
+}
+function loop(t){let dt=Math.min(.033,(t-(loop.last||t))/1000);loop.last=t;
+ let dx=(keys['d']||keys['arrowright']?1:0)-(keys['a']||keys['arrowleft']?1:0),dy=(keys['s']||keys['arrowdown']?1:0)-(keys['w']||keys['arrowup']?1:0);
+ let n=Math.hypot(dx,dy)||1,s=(keys['shift']?230:155);pik.vx=dx/n*s;pik.vy=dy/n*s;if(dx||dy){pik.anim+=dt;pik.face=dx<0?-1:dx>0?1:pik.face}
+ let nx=pik.x+pik.vx*dt,ny=pik.y+pik.vy*dt;if(!blocked(nx,pik.y))pik.x=nx;if(!blocked(pik.x,ny))pik.y=ny;
+ cam.x=clamp(pik.x-W/2,0,world.w-W);cam.y=clamp(pik.y-H/2,0,world.h-H);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script></body></html>
