@@ -1,117 +1,255 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pikachu Forest Dream</title>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#08150f;font-family:system-ui,sans-serif}
-canvas{display:block;width:100vw;height:100vh;image-rendering:auto}
-.ui{position:fixed;inset:0;pointer-events:none}.card,.badge,.hint{position:absolute;background:#06130dd9;border:1px solid #ffffff22;backdrop-filter:blur(9px);color:#fff}
-.card{left:16px;top:16px;padding:11px 14px;border-radius:15px}.title{font-weight:800}.sub{font-size:12px;color:#d3ead0;margin-top:3px}
-.badge{right:16px;top:16px;padding:8px 11px;border-radius:999px;font-size:11px}.hint{left:50%;bottom:15px;transform:translateX(-50%);padding:8px 13px;border-radius:999px;font-size:12px;color:#e5f5e1}
-</style></head><body>
-<canvas id="game"></canvas><div class="ui"><div class="card"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div><div class="badge" id="weather">Morning · Clear</div><div class="hint">WASD / arrows · Shift to trot · E to rest</div></div>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07140d}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
+.hud{position:fixed;inset:0;pointer-events:none;color:#fff}
+.panel{position:absolute;left:14px;top:14px;padding:10px 13px;border:1px solid #ffffff24;border-radius:14px;background:#07130dd9;backdrop-filter:blur(8px);box-shadow:0 8px 30px #0005}
+.title{font-weight:800}.sub{font-size:12px;color:#d8ecd5;margin-top:3px}
+.status{position:absolute;right:14px;top:14px;padding:8px 11px;border:1px solid #ffffff24;border-radius:999px;background:#07130dd9;font-size:12px}
+.help{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 12px;border:1px solid #ffffff24;border-radius:999px;background:#07130dd9;font-size:12px;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hud">
+  <div class="panel"><div class="title">Pikachu · Forest Dream</div><div class="sub" id="place">Sunny Trail</div></div>
+  <div class="status" id="status">Loading sprites…</div>
+  <div class="help">WASD / arrows · Shift to run · E to rest</div>
+</div>
 <script>
-const c=document.getElementById('game'),g=c.getContext('2d'),sheet=new Image();
-sheet.src='assets/pokemon-forest-sprites.webp';
-let dpr=Math.min(2,devicePixelRatio||1),t=0,rest=0;
-function resize(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;g.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
-const K=new Set;addEventListener('keydown',e=>{K.add(e.key.toLowerCase());if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();if(e.key.toLowerCase()==='e')rest=.9});addEventListener('keyup',e=>K.delete(e.key.toLowerCase()));
-const S=56,W=116,H=78,WW=W*S,WH=H*S,P={x:15*S,y:57*S,face:'down',walk:0},C={x:0,y:0};
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(x,y)=>{let v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v)};
-/* This is the supplied sprite-sheet artwork. The web build keeps the sheet intact and samples
-   the actual terrain/object sprites for the complete world instead of drawing replacement trees. */
-const A={
- grass:[2,7,18,19],dirt:[21,7,18,19],sand:[43,7,18,19],stone:[61,7,18,19],wood:[80,7,18,19],
- water:[103,7,18,19],flow:[120,7,18,19],stream:[138,7,18,19],pond:[156,7,18,19],
- tall:[2,33,18,19],flowergrass:[21,33,18,19],flowers:[43,33,18,19],leaves:[61,33,18,19],moss:[80,33,18,19],
- shallow:[103,33,18,19],edge:[120,33,18,19],waterfalltop:[138,33,18,19],waterfall:[156,33,18,19],
- cliff:[198,7,18,19],corner:[216,7,18,19],wall:[233,7,18,19],clifftop:[251,7,18,19],
- side:[198,33,18,19],corner2:[216,33,18,19],ledge:[233,33,18,19],stairs:[251,33,18,19],
- bridge:[289,7,18,19],stonebridge:[307,7,18,19],ropebridge:[324,7,18,19],logbridge:[342,7,18,19],
- smallbridge:[289,33,18,19],crossing:[307,33,18,19],plank:[324,33,18,19],steps:[342,33,18,19],
- tree:[3,94,18,19],treeTall:[21,94,18,19],pine:[42,94,18,19],cherry:[61,94,18,19],autumn:[80,94,18,19],
- bigtree:[3,119,18,19],dead:[21,119,18,19],fallen:[42,119,18,19],stump:[61,119,18,19],root:[80,119,18,19],
- bush:[103,94,18,19],flowerbush:[121,94,18,19],plant:[140,94,18,19],fern:[158,94,18,19],leaf:[176,94,18,19],
- smallplant:[103,119,18,19],tuft:[121,119,18,19],weeds:[140,119,18,19],reeds:[158,119,18,19],flowerpatch:[176,119,18,19],
- rock:[198,94,18,19],boulder:[216,94,18,19],smallrock:[233,94,18,19],mossyrock:[251,94,18,19],rockpile:[269,94,18,19],
- log:[198,119,18,19],mushroom:[216,119,18,19],cluster:[233,119,18,19],brokenlog:[251,119,18,19],hollow:[269,119,18,19],
- cave:[287,94,18,19],interior:[305,94,18,19],ruins:[323,94,18,19],pillar:[341,94,18,19],arch:[359,94,18,19],
- ruinedwall:[287,119,18,19],statue:[305,119,18,19],columns:[323,119,18,19],hidden:[341,119,18,19],secret:[359,119,18,19],
- bench:[3,156,18,19],sign:[21,156,18,19],fence:[43,156,18,19],torch:[61,156,18,19],lantern:[80,156,18,19],
- campfire:[3,181,18,19],tent:[21,181,18,19],well:[43,181,18,19],flowerpot:[61,181,18,19],mailbox:[80,181,18,19],
- crate:[3,206,18,19],barrel:[21,206,18,19],basket:[43,206,18,19],cart:[61,206,18,19]
-};
-function asset(name,x,y,w=70,h=74){const a=A[name];if(!a)return;g.imageSmoothingEnabled=false;g.drawImage(sheet,a[0],a[1],a[2],a[3],x,y,w,h)}
-function tile(x,y,name){asset(name,x*S,y*S,S+1,S+1)}
-function placeAsset(name,gx,gy,scale=1){asset(name,gx*S-35*scale,gy*S-62*scale,70*scale,74*scale)}
-function region(){const x=P.x/S,y=P.y/S;if(x>62&&x<79&&y>20&&y<42)return'Waterfall View';if(x>42&&x<61&&y>34&&y<58)return'Mossy Creek';if(x>84&&y>45)return'Hidden Meadow';if(x>72&&x<92&&y>55)return'Forest Ruins';if(x>25&&x<44&&y>48)return'Flower Field';if(x>77&&y<42)return'Old Forest';return'Sunny Trail'}
+"use strict";
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d",{alpha:false});
+const sprite=new Image();
+sprite.decoding="async";
+sprite.src="./assets/pokemon-forest-sprites.webp";
 
-function ground(){
- let sx=Math.floor(C.x/S)-1,ex=Math.ceil((C.x+innerWidth)/S)+1,sy=Math.floor(C.y/S)-1,ey=Math.ceil((C.y+innerHeight)/S)+1;
- for(let y=sy;y<=ey;y++)for(let x=sx;x<=ex;x++){
-   let z='grass';
-   if(y>=55&&y<=59)z=(rnd(x,y)>.82?'dirt':'sand');
-   if(x>=48&&x<=53&&y>=22&&y<=56)z=(rnd(x,y)>.7?'flow':'water');
-   if(x>=64&&x<=77&&y>=27&&y<=38)z='water';
-   if(x>=67&&x<=72&&y>=20&&y<=27)z='waterfalltop';
-   tile(x,y,z);
- }
- // Actual sheet paths and crossings.
- for(let x=-2;x<W;x++)for(let y=55;y<=58;y++)if(rnd(x,y)>.12)tile(x,y,rnd(x,y)>.72?'dirt':'sand');
- for(let y=27;y<56;y++)tile(51,y,y%4===0?'stream':'water');
- for(let x=48;x<55;x++)tile(x,38,'bridge');
- for(let x=68;x<76;x++)tile(x,33,'stonebridge');
- // cliffs made from the actual cliff sprites.
- for(let x=63;x<76;x++)tile(x,23,x===63?'corner':x===75?'corner':'cliff');
- for(let x=84;x<98;x++)tile(x,42,'wall');
+let W=innerWidth,H=innerHeight,DPR=Math.min(2,devicePixelRatio||1);
+let loaded=false,error=false,time=0,last=0,rest=0;
+const keys=new Set();
+
+function resize(){
+  W=innerWidth;H=innerHeight;DPR=Math.min(2,devicePixelRatio||1);
+  canvas.width=Math.max(1,Math.floor(W*DPR));
+  canvas.height=Math.max(1,Math.floor(H*DPR));
+  canvas.style.width=W+"px";canvas.style.height=H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize",resize);
+resize();
+
+addEventListener("keydown",e=>{
+  const k=e.key.toLowerCase();
+  keys.add(k);
+  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
+  if(k==="e")rest=.9;
+});
+addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
+
+sprite.onload=()=>{loaded=true;document.getElementById("status").textContent="Morning · Clear";};
+sprite.onerror=()=>{error=true;document.getElementById("status").textContent="Sprite sheet failed to load";};
+
+const TILE=48, COLS=76, ROWS=50, WORLD_W=COLS*TILE, WORLD_H=ROWS*TILE;
+const player={x:14*TILE,y:35*TILE,dir:"down",walk:0};
+const cam={x:0,y:0};
+
+const A={
+ grass:[2,7,18,19], dirt:[21,7,18,19], sand:[43,7,18,19], stone:[61,7,18,19], wood:[80,7,18,19],
+ water:[103,7,18,19], flow:[120,7,18,19], stream:[138,7,18,19], pond:[156,7,18,19],
+ tall:[2,33,18,19], flowergrass:[21,33,18,19], flowers:[43,33,18,19], leaves:[61,33,18,19], moss:[80,33,18,19],
+ rocky:[2,58,18,19], mud:[21,58,18,19], forest:[43,58,18,19], roots:[61,58,18,19], treeroots:[80,58,18,19],
+ shallow:[103,33,18,19], wateredge:[120,33,18,19], waterfalltop:[138,33,18,19], waterfall:[156,33,18,19],
+ cliff:[198,7,18,19], cliffcorner:[216,7,18,19], cliffwall:[233,7,18,19], clifftop:[251,7,18,19],
+ cliffside:[198,33,18,19], cliffcorner2:[216,33,18,19], ledge:[233,33,18,19], stairs:[251,33,18,19],
+ bridge:[289,7,18,19], stonebridge:[307,7,18,19], ropebridge:[324,7,18,19], logbridge:[342,7,18,19],
+ smallbridge:[289,33,18,19], crossing:[307,33,18,19], plank:[324,33,18,19], steps:[342,33,18,19],
+ tree:[3,94,18,19], treetall:[21,94,18,19], pine:[42,94,18,19], cherry:[61,94,18,19], autumn:[80,94,18,19],
+ bigtree:[3,119,18,19], deadtree:[21,119,18,19], fallen:[42,119,18,19], stump:[61,119,18,19], treeroot:[80,119,18,19],
+ bush:[103,94,18,19], flowerbush:[121,94,18,19], plant:[140,94,18,19], fern:[158,94,18,19], leaf:[176,94,18,19],
+ smallplant:[103,119,18,19], tuft:[121,119,18,19], weeds:[140,119,18,19], reeds:[158,119,18,19], flowerpatch:[176,119,18,19],
+ rock:[198,94,18,19], boulder:[216,94,18,19], smallrock:[233,94,18,19], mossyrock:[251,94,18,19], rockpile:[269,94,18,19],
+ log:[198,119,18,19], mushroom:[216,119,18,19], cluster:[233,119,18,19], brokenlog:[251,119,18,19], hollow:[269,119,18,19],
+ cave:[287,94,18,19], caveinterior:[305,94,18,19], ruins:[323,94,18,19], pillar:[341,94,18,19], arch:[359,94,18,19],
+ ruinedwall:[287,119,18,19], statue:[305,119,18,19], columns:[323,119,18,19], hidden:[341,119,18,19], secret:[359,119,18,19],
+ bench:[3,156,18,19], sign:[21,156,18,19], fence:[43,156,18,19], torch:[61,156,18,19], lantern:[80,156,18,19],
+ campfire:[3,181,18,19], tent:[21,181,18,19], well:[43,181,18,19], flowerpot:[61,181,18,19], mailbox:[80,181,18,19],
+ crate:[3,206,18,19], barrel:[21,206,18,19], basket:[43,206,18,19], cart:[61,206,18,19]
+};
+
+function spritePart(name,x,y,w=TILE*1.5,h=TILE*1.5){
+  if(!loaded)return;
+  const a=A[name];if(!a)return;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(sprite,a[0],a[1],a[2],a[3],x,y,w,h);
+}
+function tile(name,gx,gy){
+  spritePart(name,gx*TILE,gy*TILE,TILE+1,TILE+1);
+}
+function object(name,gx,gy,size=1){
+  spritePart(name,gx*TILE-TILE*.75*size,gy*TILE-TILE*1.28*size,TILE*1.5*size,TILE*1.58*size);
+}
+function noise(x,y){
+  const n=Math.sin(x*127.13+y*311.71)*43758.5453;
+  return n-Math.floor(n);
 }
 
-function vegetation(){
- const sx=Math.floor(C.x/S)-2,ex=Math.ceil((C.x+innerWidth)/S)+2,sy=Math.floor(C.y/S)-2,ey=Math.ceil((C.y+innerHeight)/S)+2;
- for(let y=sy;y<ey;y+=2)for(let x=sx;x<ex;x+=2){
-   const q=rnd(x,y),gx=x+rnd(x+3,y+1),gy=y+rnd(y+2,x+5);
-   if((gx>45&&gx<59&&gy>34&&gy<59)||(gx>63&&gx<79&&gy>20&&gy<42))continue;
-   if(q>.72)placeAsset(q>.94?'treeTall':q>.88?'pine':q>.81?'bigtree':'tree',gx,gy,.95+rnd(x,y)*.3);
-   else if(q>.58)placeAsset(q>.76?'flowerbush':q>.66?'bush':'fern',gx,gy,.65);
- }
- for(let i=0;i<170;i++){const gx=rnd(i,4)*112+2,gy=rnd(i,8)*73+3,q=rnd(i,12);if(q>.48)placeAsset(q>.82?'flowers':q>.64?'flowergrass':'tall',gx,gy,.55)}
- for(let i=0;i<70;i++){const gx=rnd(i,20)*112+2,gy=rnd(i,23)*73+3,q=rnd(i,30);if(q>.38)placeAsset(q>.78?'mossyrock':q>.55?'smallrock':'rock',gx,gy,.58)}
- for(let i=0;i<38;i++){const gx=rnd(i,41)*112+2,gy=rnd(i,42)*73+3;placeAsset(i%3?'mushroom':'log',gx,gy,.6)}
+function terrain(){
+  const x0=Math.max(0,Math.floor(cam.x/TILE)-1),x1=Math.min(COLS-1,Math.ceil((cam.x+W)/TILE)+1);
+  const y0=Math.max(0,Math.floor(cam.y/TILE)-1),y1=Math.min(ROWS-1,Math.ceil((cam.y+H)/TILE)+1);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    let n="grass";
+    if(y>=34&&y<=38)n=noise(x,y)>.18?(noise(x+3,y)>.55?"dirt":"sand"):"grass";
+    if(x>=30&&x<=34&&y>=10&&y<=34)n=(y%4===0?"flow":"water");
+    if(x>=49&&x<=61&&y>=15&&y<=26)n="water";
+    if(x>=52&&x<=57&&y>=10&&y<=15)n="waterfalltop";
+    if(x>=48&&x<=58&&y>=27&&y<=30)n="shallow";
+    if(x>=5&&x<=17&&y>=41&&y<=47)n="forest";
+    if(x>=38&&x<=51&&y>=40&&y<=46)n="moss";
+    tile(n,x,y);
+  }
+  for(let x=0;x<COLS;x++){tile("dirt",x,36);if(x%3!==0)tile("sand",x,37);}
+  for(let y=25;y<=34;y++)tile("stream",32,y);
+  for(let x=29;x<=35;x++)tile("bridge",x,28);
+  for(let x=50;x<=59;x++)tile("stonebridge",x,22);
+  for(let x=48;x<=61;x++)tile("cliff",x,9);
+  for(let x=49;x<=60;x++)tile("cliffwall",x,10);
+  for(let x=49;x<=60;x++)tile("clifftop",x,8);
+}
+
+function decorations(){
+  const minX=Math.max(0,Math.floor(cam.x/TILE)-2),maxX=Math.min(COLS,Math.ceil((cam.x+W)/TILE)+2);
+  const minY=Math.max(0,Math.floor(cam.y/TILE)-2),maxY=Math.min(ROWS,Math.ceil((cam.y+H)/TILE)+2);
+  for(let y=minY;y<maxY;y+=2)for(let x=minX;x<maxX;x+=2){
+    const n=noise(x,y),xx=x+noise(x+8,y)*1.1,yy=y+noise(x,y+8)*1.1;
+    const open=(xx>27&&xx<37&&yy>22&&yy<39)||(xx>47&&xx<63&&yy>7&&yy<28);
+    if(open)continue;
+    if(n>.78)object(n>.95?"treetall":n>.89?"pine":"tree",xx,yy,.9+noise(x+2,y)*.25);
+    else if(n>.61)object(n>.78?"flowerbush":n>.69?"bush":"fern",xx,yy,.6);
+  }
+  for(let i=0;i<110;i++){
+    const x=noise(i,3)*72+2,y=noise(i,9)*47+1,n=noise(i,14);
+    if(n>.48)object(n>.82?"flowers":n>.64?"flowergrass":"tall",x,y,.48);
+  }
+  for(let i=0;i<45;i++){
+    const x=noise(i,19)*72+2,y=noise(i,23)*47+1;
+    object(i%3===0?"mossyrock":i%3===1?"smallrock":"rock",x,y,.5);
+  }
 }
 
 function landmarks(){
- placeAsset('waterfall',70,26,1.15);placeAsset('cave',91,19,1.05);
- placeAsset('ruins',78,64,1.0);placeAsset('arch',87,63,.9);
- placeAsset('bigtree',82,62,1.25);placeAsset('bench',18,53,.75);placeAsset('campfire',21,54,.65);
- placeAsset('tent',23,53,.7);placeAsset('well',37,58,.7);
- placeAsset('flowerpot',40,57,.55);placeAsset('fallen',56,52,.8);
+  object("waterfall",55,15,1.3);
+  object("cave",64,8,1.1);
+  object("ruins",45,43,1.05);
+  object("arch",51,43,.9);
+  object("bigtree",57,42,1.25);
+  object("clearing",1,1,0); // harmless: atlas intentionally has no procedural scenery
+  object("bench",11,34,.7);
+  object("campfire",13,35,.65);
+  object("tent",15,35,.65);
+  object("well",22,39,.7);
+  object("flowerpot",25,38,.55);
+  object("fallen",35,34,.8);
 }
 
-function world(){g.save();g.translate(-C.x,-C.y);ground();vegetation();landmarks();g.restore()}
-
-function pika(){
- g.save();g.translate(P.x-C.x,P.y-C.y);
- const moving=P.walk>0,bob=moving?Math.sin(P.walk*14)*2:Math.sin(t*2.2)*1.2;g.translate(0,bob);
- if(rest>0){g.globalAlpha=.25+.75*rest;g.beginPath();g.strokeStyle='#fff3';g.arc(0,0,34+Math.sin(t*7)*3,0,7);g.stroke()}
- // Supplied Pikachu frames, from the sprite-sheet strip at the bottom of the sheet.
- const frame=moving?Math.floor(P.walk*1.7)%4:Math.floor(t*1.4)%5;
- const sx=4+frame*14,sy=225;
- g.imageSmoothingEnabled=false;g.drawImage(sheet,sx,sy,13,19,-27,-38,54,78);g.restore()
+function world(){
+  ctx.save();
+  ctx.translate(-cam.x,-cam.y);
+  terrain();
+  decorations();
+  landmarks();
+  ctx.restore();
 }
 
-function atmosphere(){
- const phase=(t/50)%1,mode=phase<.22?'Morning':phase<.48?'Afternoon':phase<.64?'Sunset':phase<.82?'Night':'Dawn',rain=Math.floor(t/40)%4===3;
- if(mode==='Night'){g.fillStyle='#08184b77';g.fillRect(0,0,innerWidth,innerHeight);for(let i=0;i<38;i++){g.fillStyle='#fff9';g.fillRect((i*97+t*3)%innerWidth,(i*53)%innerHeight,2,2)}}
- if(mode==='Sunset'){g.fillStyle='#d67c3a22';g.fillRect(0,0,innerWidth,innerHeight)}
- if(rain){g.strokeStyle='#a7d8ef55';for(let i=0;i<120;i++){let x=(i*83+t*180)%innerWidth,y=(i*47+t*280)%innerHeight;g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+13);g.stroke()}}
- for(let i=0;i<18;i++){let x=(i*139+t*20)%innerWidth,y=(i*71+Math.sin(t+i)*12)%innerHeight;g.strokeStyle='#e8f8df44';g.beginPath();g.moveTo(x,y);g.lineTo(x+12,y-3);g.stroke()}
- document.getElementById('weather').textContent=mode+' · '+(rain?'Rain':'Clear');document.getElementById('place').textContent=region()
+function pikachu(){
+  if(!loaded)return;
+  ctx.save();
+  const bob=player.walk?Math.sin(player.walk*14)*2:Math.sin(time*2.2)*1.1;
+  ctx.translate(player.x-cam.x,player.y-cam.y+bob);
+  const moving=player.walk>0;
+  let sx=4,sy=225,frame;
+  if(moving){
+    const dirRow={down:0,up:1,left:2,right:3}[player.dir];
+    frame=Math.floor(player.walk*1.9)%4;
+    sx=113+frame*14;
+    sy=225+dirRow*9;
+  }else{
+    frame=Math.floor(time*1.6)%4;
+    sx=4+frame*14;
+    sy=225;
+  }
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(sprite,sx,sy,13,19,-27,-39,54,79);
+  if(rest>0){
+    ctx.globalAlpha=.35+.5*rest;
+    ctx.strokeStyle="#fff";
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(0,0,35+Math.sin(time*8)*3,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
 }
 
-function loop(ms){const dt=Math.min(.035,(ms-(loop.last||ms))/1000);loop.last=ms;t+=dt;
- let dx=(K.has('d')||K.has('arrowright')?1:0)-(K.has('a')||K.has('arrowleft')?1:0),dy=(K.has('s')||K.has('arrowdown')?1:0)-(K.has('w')||K.has('arrowup')?1:0),l=Math.hypot(dx,dy)||1,sp=K.has('shift')?210:150;
- if(dx||dy){dx/=l;dy/=l;P.walk+=dt*sp/22;if(Math.abs(dx)>Math.abs(dy))P.face=dx>0?'right':'left';else P.face=dy>0?'down':'up'}else P.walk=0;
- P.x=clamp(P.x+dx*sp*dt,30,WW-30);P.y=clamp(P.y+dy*sp*dt,30,WH-30);
- C.x+=(clamp(P.x-innerWidth/2,0,WW-innerWidth)-C.x)*.12;C.y+=(clamp(P.y-innerHeight/2,0,WH-innerHeight)-C.y)*.12;
- if(rest>0)rest-=dt;g.clearRect(0,0,innerWidth,innerHeight);world();pika();atmosphere();requestAnimationFrame(loop)}
-sheet.onload=()=>requestAnimationFrame(loop);
-</script></body></html>
+function effects(){
+  const cycle=(time%60)/60;
+  let mode=cycle<.2?"Morning":cycle<.48?"Afternoon":cycle<.65?"Sunset":cycle<.84?"Night":"Dawn";
+  const rain=Math.floor(time/45)%5===4;
+  if(mode==="Night"){ctx.fillStyle="#0b1a4b55";ctx.fillRect(0,0,W,H);}
+  if(mode==="Sunset"){ctx.fillStyle="#d77a3a18";ctx.fillRect(0,0,W,H);}
+  if(rain){
+    ctx.strokeStyle="#b9e8ff77";
+    for(let i=0;i<90;i++){const x=(i*91+time*170)%W,y=(i*47+time*260)%H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y+12);ctx.stroke();}
+  }
+  if(mode==="Night"){
+    ctx.fillStyle="#ffffffaa";
+    for(let i=0;i<28;i++){const x=(i*137+time*12)%W,y=(i*71+Math.sin(time+i)*8)%H;ctx.fillRect(x,y,2,2);}
+  }
+  document.getElementById("status").textContent=mode+" · "+(rain?"Rain":"Clear");
+  const px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
+  let place="Sunny Trail";
+  if(px>27&&px<38&&py>22&&py<39)place="Mossy Creek";
+  else if(px>47&&px<63&&py<29)place="Waterfall View";
+  else if(px>39&&px<55&&py>39)place="Forest Ruins";
+  else if(px<24&&py>39)place="Flower Field";
+  else if(px>58&&py<18)place="Old Forest";
+  document.getElementById("place").textContent=place;
+}
+
+function loadingScreen(){
+  ctx.fillStyle="#08150f";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#d9f2d2";ctx.font="700 18px system-ui";ctx.textAlign="center";
+  ctx.fillText(error?"Sprite sheet could not be loaded":"Loading the forest sprite sheet…",W/2,H/2-8);
+  ctx.font="12px system-ui";ctx.fillStyle="#9fc49a";
+  ctx.fillText(error?"Check that assets/pokemon-forest-sprites.webp exists in the repository.":"The world will start as soon as the asset is ready.",W/2,H/2+18);
+}
+
+function frame(ms){
+  const dt=Math.min(.033,(ms-last||16)/1000);last=ms;time+=dt;
+  if(!loaded){loadingScreen();requestAnimationFrame(frame);return;}
+  let dx=(keys.has("d")||keys.has("arrowright")?1:0)-(keys.has("a")||keys.has("arrowleft")?1:0);
+  let dy=(keys.has("s")||keys.has("arrowdown")?1:0)-(keys.has("w")||keys.has("arrowup")?1:0);
+  const len=Math.hypot(dx,dy)||1;
+  if(dx||dy){
+    dx/=len;dy/=len;
+    player.walk+=dt*(keys.has("shift")?12:9);
+    player.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?"right":"left"):(dy>0?"down":"up");
+  }else player.walk=0;
+  const speed=keys.has("shift")?190:135;
+  player.x=Math.max(24,Math.min(WORLD_W-24,player.x+dx*speed*dt));
+  player.y=Math.max(24,Math.min(WORLD_H-24,player.y+dy*speed*dt));
+  const tx=Math.max(0,Math.min(WORLD_W-W,player.x-W/2));
+  const ty=Math.max(0,Math.min(WORLD_H-H,player.y-H/2));
+  cam.x+=(tx-cam.x)*.12;cam.y+=(ty-cam.y)*.12;
+  if(rest>0)rest=Math.max(0,rest-dt);
+  ctx.fillStyle="#08150f";ctx.fillRect(0,0,W,H);
+  world();pikachu();effects();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
